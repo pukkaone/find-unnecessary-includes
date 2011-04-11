@@ -9,6 +9,7 @@
 After cloning the project Git repository, run
 
     git submodule init
+    git submodule update
 
 
 # Build
