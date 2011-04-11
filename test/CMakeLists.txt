@@ -1,0 +1,23 @@
+# $Id$
+
+get_target_property(
+    FIND_UNNECESSARY_INCLUDES_EXE find-unnecessary-includes LOCATION)
+set(TEST_COMMAND ${FIND_UNNECESSARY_INCLUDES_EXE})
+
+macro(add_compare_test inputFile)
+  add_test(
+      NAME ${inputFile}
+      COMMAND ${CMAKE_COMMAND}
+          -D "TEST_COMMAND=$<TARGET_FILE:find-unnecessary-includes>"
+          -D "TEST_INPUT=${inputFile}"
+          -P runtest.cmake
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  )
+endmacro()
+
+add_compare_test(enum-unused.cpp)
+add_compare_test(enum-used.cpp)
+add_compare_test(macro-unused.c)
+add_compare_test(macro-used.c)
+add_compare_test(variable-unused.cpp)
+add_compare_test(variable-used.cpp)
