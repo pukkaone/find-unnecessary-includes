@@ -17,6 +17,8 @@ endmacro()
 
 add_compare_test(enum-unused.cpp)
 add_compare_test(enum-used.cpp)
+add_compare_test(function-unused.cpp)
+add_compare_test(function-used.cpp)
 add_compare_test(macro-unused.c)
 add_compare_test(macro-used.c)
 add_compare_test(variable-unused.cpp)
