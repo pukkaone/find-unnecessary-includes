@@ -10,7 +10,7 @@ macro(add_compare_test inputFile)
       COMMAND ${CMAKE_COMMAND}
           -D "TEST_COMMAND=$<TARGET_FILE:find-unnecessary-includes>"
           -D "TEST_INPUT=${inputFile}"
-          -P runtest.cmake
+          -P compare_test.cmake
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   )
 endmacro()
