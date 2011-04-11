@@ -1,11 +1,13 @@
 #ifndef BASE_H
 #define BASE_H
 
+typedef int Identifier;
+
+enum Season { WINTER, SPRING, SUMMER, FALL };
+
 class Base
 {
 public:
-  enum Season { WINTER, SPRING, SUMMER, FALL };
-
   void memberFunction();
 };
 

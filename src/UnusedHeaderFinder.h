@@ -124,14 +124,18 @@ public:
       clang::SrcMgr::CharacteristicKind fileType);
 
   virtual void MacroExpands(
-      const clang::Token& nameToken, const clang::MacroInfo* macroInfo);
+      const clang::Token& nameToken, const clang::MacroInfo* pMacro);
 
   virtual void HandleTranslationUnit(clang::ASTContext& astContext);
+
+  // Called when a typedef is used.
+  bool VisitTypedefTypeLoc(clang::TypedefTypeLoc typeLoc);
+
+  // Called when a enum, struct or class is used.
+  bool VisitTagTypeLoc(clang::TagTypeLoc typeLoc);
   
   // Called when a variable, function, or enum constant is used.
   bool VisitDeclRefExpr(clang::DeclRefExpr* pExpr);
-
-  bool VisitTypeLoc(clang::TypeLoc typeLoc);
 };
 
 #endif

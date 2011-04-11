@@ -4,6 +4,6 @@ namespace {
 
 enum Season { WINTER, SPRING, SUMMER, FALL };
 
-Season season;
+bool b = WINTER < SPRING;
 
 }//namespace

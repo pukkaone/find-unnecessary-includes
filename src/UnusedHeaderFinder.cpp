@@ -205,9 +205,18 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
   }
 }
 
+
 bool
-UnusedHeaderFinder::VisitTypeLoc(clang::TypeLoc typeLoc)
+UnusedHeaderFinder::VisitTypedefTypeLoc (TypedefTypeLoc typeLoc)
 {
+  markUsed(typeLoc.getTypedefDecl()->getLocation(), typeLoc.getBeginLoc());
+  return true;
+}
+
+bool
+UnusedHeaderFinder::VisitTagTypeLoc(TagTypeLoc typeLoc)
+{
+  markUsed(typeLoc.getDecl()->getLocation(), typeLoc.getBeginLoc());
   return true;
 }
 
