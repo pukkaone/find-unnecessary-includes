@@ -5,7 +5,6 @@
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Lex/Preprocessor.h"
 #include "llvm/Support/CommandLine.h"
-#include "TranslationUnitReader.h"
 #include "UnusedHeaderFinder.h"
 #include <algorithm>
 #include <cstdlib>
