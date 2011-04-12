@@ -141,9 +141,11 @@ void
 UnusedHeaderFinder::MacroExpands (
     const Token& nameToken, const MacroInfo* pMacro)
 {
-  markUsed(pMacro->getDefinitionLoc(), nameToken.getLocation());
+  // Ignore expansion of builtin macros like __LINE__.
+  if (pMacro->isBuiltinMacro() == false) {
+    markUsed(pMacro->getDefinitionLoc(), nameToken.getLocation());
+  }
 }
-
 
 std::string
 UnusedHeaderFinder::format (SourceLocation sourceLocation)
@@ -224,9 +226,10 @@ bool
 UnusedHeaderFinder::VisitTemplateSpecializationTypeLoc (
     TemplateSpecializationTypeLoc typeLoc)
 {
-  markUsed(
-    typeLoc.getTypePtr()->getAsCXXRecordDecl()->getLocation(),
-    typeLoc.getTemplateNameLoc());
+  CXXRecordDecl* pCXXRecordDecl = typeLoc.getTypePtr()->getAsCXXRecordDecl();
+  if (pCXXRecordDecl) {
+    markUsed(pCXXRecordDecl->getLocation(), typeLoc.getTemplateNameLoc());
+  }
   return true;
 }
 
