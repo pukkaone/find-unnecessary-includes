@@ -133,6 +133,10 @@ public:
 
   // Called when a enum, struct or class is used.
   bool VisitTagTypeLoc(clang::TagTypeLoc typeLoc);
+
+  // Called class template is used.
+  bool VisitTemplateSpecializationTypeLoc(
+      clang::TemplateSpecializationTypeLoc typeLoc);
   
   // Called when a variable, function, or enum constant is used.
   bool VisitDeclRefExpr(clang::DeclRefExpr* pExpr);

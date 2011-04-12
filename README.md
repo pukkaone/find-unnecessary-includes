@@ -6,13 +6,13 @@ unnecessary `#include` directives in the main source file.  Nested
 considered.
 
 
-### Unnecessary #include directive
+### Unnecessary #include directives
 
 Definition: An `#include` directive is *unnecessary* if the translation unit
 compiles without errors after you remove it.
 
 
-### Optional #include directive
+### Optional #include directives
 
 Definition: An `#include` directive is *optional* if removing it causes a
 compile error but the compile error can be corrected by adding other `#include`
@@ -37,7 +37,8 @@ include `Base.h` instead.
 
 ### Check out source
 
-After cloning the project Git repository, run the commands:
+The tool uses clang to preprocess and parse C++ source code.  Download the llvm
+and clang sources to the working tree by running the commands:
 
     git submodule init
     git submodule update

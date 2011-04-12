@@ -221,6 +221,16 @@ UnusedHeaderFinder::VisitTagTypeLoc(TagTypeLoc typeLoc)
 }
 
 bool
+UnusedHeaderFinder::VisitTemplateSpecializationTypeLoc (
+    TemplateSpecializationTypeLoc typeLoc)
+{
+  markUsed(
+    typeLoc.getTypePtr()->getAsCXXRecordDecl()->getLocation(),
+    typeLoc.getTemplateNameLoc());
+  return true;
+}
+
+bool
 UnusedHeaderFinder::VisitDeclRefExpr (DeclRefExpr* pExpr)
 {
   markUsed(pExpr->getDecl()->getLocation(), pExpr->getLocation());

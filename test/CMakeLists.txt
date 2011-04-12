@@ -15,6 +15,8 @@ macro(add_compare_test inputFile)
   )
 endmacro()
 
+add_compare_test(class-template-unused.cpp)
+add_compare_test(class-template-used.cpp)
 add_compare_test(class-unused.cpp)
 add_compare_test(class-used.cpp)
 add_compare_test(enum-constant-unused.cpp)

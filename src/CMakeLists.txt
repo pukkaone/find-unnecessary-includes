@@ -14,6 +14,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/llvm/include
     ${CMAKE_BINARY_DIR}/clang/include
     ${CMAKE_SOURCE_DIR}/clang/include
+    ${CMAKE_BINARY_DIR}/include
 )
 
 set(LLVM_USED_LIBS

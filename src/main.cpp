@@ -6,6 +6,7 @@
 #include "clang/Lex/Preprocessor.h"
 #include "llvm/Support/CommandLine.h"
 #include "UnusedHeaderFinder.h"
+#include "version.h"
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -15,18 +16,19 @@ using namespace llvm;
 
 namespace {
 
+const std::string PROGRAM_NAME("find-unnecessary-includes");
+
 void
 showHelp ()
 {
   std::cout <<
-      "USAGE: find-unnecessary-includes [options] <inputs>\n"
+      "USAGE: " << PROGRAM_NAME << " [options] <inputs>\n"
       "\n"
       "OPTIONS:\n"
       "  --help                  show help\n"
       "  --version               show version\n"
       "  -D<macro>[=def]         define preprocessor macro\n"
       "  -I<dir>                 add include directory\n"
-      "  -@<file>                read options from file\n"
       "\n"
       "Many clang options are also supported.  "
       "See the clang manual for more options.\n";
@@ -37,7 +39,8 @@ handleFrontEndOptions (FrontendOptions& opt)
 {
   if (opt.ShowVersion)
   {
-    std::cout << "hello based on " << getClangFullVersion() << std::endl;
+    std::cout << PROGRAM_NAME << ' ' << FUI_VERSION
+        << "\nbased on " << getClangFullVersion() << std::endl;
     return false;
   }
 

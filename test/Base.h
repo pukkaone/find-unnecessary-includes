@@ -5,12 +5,18 @@ typedef int Identifier;
 
 enum Season { WINTER, SPRING, SUMMER, FALL };
 
-class Base
-{
+class Base {
 public:
   void memberFunction();
 };
 
 extern Base base;
+
+template<typename V>
+V
+max (V x, V y)
+{
+  return (x > y) ? x : y;
+}
 
 #endif
