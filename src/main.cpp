@@ -63,11 +63,11 @@ class UnnecessaryIncludeFinderAction: public ASTFrontendAction
 {
 public:
   ASTConsumer* CreateASTConsumer(
-      CompilerInstance &compilerInstance, StringRef inputFile)
+      CompilerInstance &compiler, StringRef inputFile)
   {
     UnusedHeaderFinder* pFinder = new UnusedHeaderFinder(
-        compilerInstance.getSourceManager());
-    compilerInstance.getPreprocessor().addPPCallbacks(
+        compiler.getSourceManager());
+    compiler.getPreprocessor().addPPCallbacks(
         pFinder->createPreprocessorCallbacks());
     return pFinder;
   }
@@ -78,26 +78,34 @@ public:
 int
 main (int argc, char* argv[])
 {
-  CompilerInstance compilerInstance;
+  CompilerInstance compiler;
 
   // Create diagnostics so errors while processing command line arguments can
   // be reported.
-  compilerInstance.createDiagnostics(argc, argv);
+  compiler.createDiagnostics(argc, argv);
 
   CompilerInvocation::CreateFromArgs(
-      compilerInstance.getInvocation(),
+      compiler.getInvocation(),
       argv + 1,
       argv + argc,
-      compilerInstance.getDiagnostics());
+      compiler.getDiagnostics());
 
-  if (!handleFrontEndOptions(compilerInstance.getFrontendOpts())) {
+  if (!handleFrontEndOptions(compiler.getFrontendOpts())) {
     return EXIT_FAILURE;
   }
 
-  compilerInstance.getInvocation().setLangDefaults(IK_CXX);
+  compiler.getInvocation().setLangDefaults(IK_CXX);
+
+  if (compiler.getHeaderSearchOpts().UseBuiltinIncludes
+   && compiler.getHeaderSearchOpts().ResourceDir.empty())
+  {
+    compiler.getHeaderSearchOpts().ResourceDir =
+        CompilerInvocation::GetResourcesPath(
+            argv[0], reinterpret_cast<void*>(showHelp));
+  }
 
   UnnecessaryIncludeFinderAction action;
-  compilerInstance.ExecuteAction(action);
+  compiler.ExecuteAction(action);
 
   return EXIT_SUCCESS;
 }
