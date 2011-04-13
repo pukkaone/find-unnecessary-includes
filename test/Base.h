@@ -19,4 +19,6 @@ max (V x, V y)
   return (x > y) ? x : y;
 }
 
+void function();
+
 #endif

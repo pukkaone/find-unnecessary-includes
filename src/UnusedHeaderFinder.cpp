@@ -75,6 +75,10 @@ void
 UnusedHeaderFinder::markUsed (
     SourceLocation declarationLocation, SourceLocation usageLocation)
 {
+  if (declarationLocation.isInvalid() || usageLocation.isInvalid()) {
+    return;
+  }
+
   // Is the symbol declared in an included file and is it being used in the
   // main file?
   if (!isFromMainFile(declarationLocation) && isFromMainFile(usageLocation)) {
@@ -109,10 +113,10 @@ UnusedHeaderFinder::FileChanged (
     PPCallbacks::FileChangeReason reason,
     SrcMgr::CharacteristicKind fileType)
 {
-  if (isFromMainFile(newLocation)) {
+  if (reason == PPCallbacks::EnterFile) {
+    if (isFromMainFile(newLocation)) {
       includeDepth_ = 0;
-  } else {
-    if (reason == PPCallbacks::EnterFile) {
+    } else {
       ++includeDepth_;
 
       const FileEntry* pFile = getFileEntry(newLocation);
@@ -131,9 +135,9 @@ UnusedHeaderFinder::FileChanged (
           includeDirectives_.back()->nestedHeaders_.insert(pFile);
         }
       }
-    } else {
-      --includeDepth_;
     }
+  } else if (reason == PPCallbacks::ExitFile) {
+    --includeDepth_;
   }
 }
 
@@ -207,7 +211,6 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
   }
 }
 
-
 bool
 UnusedHeaderFinder::VisitTypedefTypeLoc (TypedefTypeLoc typeLoc)
 {
@@ -237,5 +240,14 @@ bool
 UnusedHeaderFinder::VisitDeclRefExpr (DeclRefExpr* pExpr)
 {
   markUsed(pExpr->getDecl()->getLocation(), pExpr->getLocation());
+  return true;
+}
+
+bool
+UnusedHeaderFinder::VisitCXXMemberCallExpr (CXXMemberCallExpr* pExpr)
+{
+  markUsed(
+      pExpr->getMethodDecl()->getLocation(),
+      pExpr->getExprLoc());
   return true;
 }

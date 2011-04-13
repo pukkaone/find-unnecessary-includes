@@ -2,9 +2,9 @@
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
-#include "clang/Frontend/FrontendActions.h"
 #include "clang/Lex/Preprocessor.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "UnusedHeaderFinder.h"
 #include "version.h"
 #include <algorithm>
@@ -107,5 +107,6 @@ main (int argc, char* argv[])
   UnnecessaryIncludeFinderAction action;
   compiler.ExecuteAction(action);
 
+  llvm_shutdown();
   return EXIT_SUCCESS;
 }

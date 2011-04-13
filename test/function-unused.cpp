@@ -1,7 +1,17 @@
-#include "Derived.h"
+#include "Base.h"
+
+namespace {
+
+void function();
 
 void
 f ()
 {
-  base.memberFunction();
+  function();
 }
+
+void function ()
+{
+}
+
+}//namespace

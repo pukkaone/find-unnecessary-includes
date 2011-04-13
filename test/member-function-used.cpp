@@ -3,5 +3,5 @@
 void
 f ()
 {
-  function();
+  base.memberFunction();
 }
