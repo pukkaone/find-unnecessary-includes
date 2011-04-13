@@ -104,6 +104,16 @@ main (int argc, char* argv[])
             argv[0], reinterpret_cast<void*>(showHelp));
   }
 
+  if (compiler.getLangOpts().Microsoft) {
+    // Kludge to allow clang to parse Microsoft headers.
+    // Visual C++ does name resolution at template instantiation, but clang does
+    // name resolution at template definition.  A Microsoft header defines a
+    // template referencing _invalid_parameter_noinfo but is not declared at
+    // that point. It is declared in the <xutility> header file, which is
+    // included later.
+    compiler.getPreprocessorOpts().addMacroDef("_invalid_parameter_noinfo=__noop");
+  }
+
   UnnecessaryIncludeFinderAction action;
   compiler.ExecuteAction(action);
 

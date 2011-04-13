@@ -16,7 +16,7 @@ IncludeDirective::nestedHeaderUsed (const UsedHeaders& usedHeaders)
       pHeader != nestedHeaders_.end();
       ++pHeader)
   {
-    if (usedHeaders.count(*pHeader) > 0) {
+    if (usedHeaders.count(*pHeader)) {
       return true;
     }
   }
@@ -74,18 +74,18 @@ void
 UnusedHeaderFinder::markUsed (
     SourceLocation declarationLocation, SourceLocation usageLocation)
 {
-  if (declarationLocation.isInvalid() || usageLocation.isInvalid()) {
+  // Is the symbol declared in an included file and is it being used in the
+  // main file?
+  if (usageLocation.isInvalid() || !isFromMainFile(usageLocation)) {
     return;
   }
 
-  // Is the symbol declared in an included file and is it being used in the
-  // main file?
-  FileID usageFileID = sourceManager_.getFileID(usageLocation);
-  FileID declarationFileID = sourceManager_.getFileID(declarationLocation);
+  if (declarationLocation.isInvalid()) {
+    return;
+  }
 
-  if (usageFileID == sourceManager_.getMainFileID()
-   && declarationFileID != sourceManager_.getMainFileID())
-  {
+  FileID declarationFileID = sourceManager_.getFileID(declarationLocation);
+  if (declarationFileID != sourceManager_.getMainFileID()) {
     usedHeaders_.insert(declarationFileID);
   }
 }
@@ -133,7 +133,7 @@ UnusedHeaderFinder::FileChanged (
 
           pIncludeDirective->fileID_ = newFileID;
           includeDirectives_.push_back(pIncludeDirective);
-        } else {
+        } else if (!includeDirectives_.empty()) {
           // Remember all headers transitively included from #include directive
           // in the main file.
           includeDirectives_.back()->nestedHeaders_.insert(newFileID);
@@ -176,7 +176,7 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
   {
     IncludeDirective::Ptr pIncludeDirective(*ppIncludeDirective);
 
-    if (usedHeaders_.count(pIncludeDirective->fileID_) == 0)
+    if (usedHeaders_.count(pIncludeDirective->fileID_) == false)
     {
       bool nestedHeaderUsed =
           pIncludeDirective->nestedHeaderUsed(usedHeaders_);
@@ -203,8 +203,11 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
             ppFile != nestedHeaders.end();
             ++ppFile)
         {
-          const FileEntry* pFile = sourceManager_.getFileEntryForID(*ppFile);
-          std::cout << std::endl << pFile->getName();
+          FileID headerFileID = *ppFile;
+          if (usedHeaders_.count(headerFileID)) {
+            const FileEntry* pFile = sourceManager_.getFileEntryForID(headerFileID);
+            std::cout << std::endl << pFile->getName();
+          }
         }
       } else {
         std::cout << "is unnecessary";
