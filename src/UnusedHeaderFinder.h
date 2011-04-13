@@ -4,19 +4,25 @@
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/MacroInfo.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Token.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
 
-/** map header file to a flag indicating if the header is used */
-typedef std::map<const clang::FileEntry*, bool> UsedHeaderMap;
+/** set of header files marked as used */
+typedef llvm::DenseSet<clang::FileID> UsedHeaders;
 
+/**
+ * Information about #include directive appearing in the source code.
+ */
 struct IncludeDirective: public llvm::RefCountedBase<IncludeDirective>
 {
   typedef llvm::IntrusiveRefCntPtr<IncludeDirective> Ptr;
@@ -33,31 +39,30 @@ struct IncludeDirective: public llvm::RefCountedBase<IncludeDirective>
   bool angled_;
 
   /** actual file included by #include directive */
-  const clang::FileEntry* fileEntry_;
+  clang::FileID fileID_;
 
   /** header files that this header file includes directly or indirectly */
-  typedef std::set<const clang::FileEntry*> NestedHeaders;
+  typedef llvm::DenseSet<clang::FileID> NestedHeaders;
   NestedHeaders nestedHeaders_;
 
   IncludeDirective(
       clang::SourceLocation hashLoc,
       llvm::StringRef fileName,
-      bool angled,
-      const clang::FileEntry* fileEntry):
+      bool angled):
     sourceLocation_(hashLoc),
     fileName_(fileName),
-    angled_(angled),
-    fileEntry_(fileEntry)
+    angled_(angled)
   { }
 
   /**
    * Checks if any of the header files this header includes is used.
    */
-  bool nestedHeaderUsed(const UsedHeaderMap& usedHeaders);
+  bool nestedHeaderUsed(const UsedHeaders& usedHeaders);
 };
 
 /**
- * When the main source file uses a symbol, mark the header file which declares
+ * Finds unused header files by traversing the translation unit, and for each
+ * symbol used by the main source file, marking the header file which declares
  * the symbol as used.
  */
 class UnusedHeaderFinder:
@@ -67,11 +72,11 @@ class UnusedHeaderFinder:
 {
   clang::SourceManager& sourceManager_;
 
-  // map header to flag indicating the header is used
-  UsedHeaderMap usedHeaders_;
+  // set of header files marked as used
+  UsedHeaders usedHeaders_;
 
   // map header to #include directive that includes it 
-  typedef std::map<const clang::FileEntry*, IncludeDirective::Ptr>
+  typedef llvm::DenseMap<const clang::FileEntry*, IncludeDirective::Ptr>
       HeaderIncludeDirectiveMap;
   HeaderIncludeDirectiveMap headerIncludeDirectiveMap_;
 
@@ -84,12 +89,6 @@ class UnusedHeaderFinder:
 
   bool isFromMainFile (clang::SourceLocation sourceLocation)
   { return sourceManager_.isFromMainFile(sourceLocation); }
-
-  const clang::FileEntry* getFileEntry (clang::SourceLocation sourceLocation)
-  {
-    return sourceManager_.getFileEntryForID(
-        sourceManager_.getFileID(sourceLocation));
-  }
 
   void markUsed(
       clang::SourceLocation declarationLocation,
@@ -141,6 +140,7 @@ public:
   // Called when a variable, function, or enum constant is used.
   bool VisitDeclRefExpr(clang::DeclRefExpr* pExpr);
 
+  // Called when a member function is called.
   bool VisitCXXMemberCallExpr(clang::CXXMemberCallExpr* pExpr);
 };
 

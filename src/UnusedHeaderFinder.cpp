@@ -10,14 +10,13 @@ using namespace clang;
 using namespace llvm;
 
 bool
-IncludeDirective::nestedHeaderUsed (const UsedHeaderMap& usedHeaders)
+IncludeDirective::nestedHeaderUsed (const UsedHeaders& usedHeaders)
 {
   for (NestedHeaders::iterator pHeader = nestedHeaders_.begin();
       pHeader != nestedHeaders_.end();
       ++pHeader)
   {
-    UsedHeaderMap::const_iterator pPair = usedHeaders.find(*pHeader);
-    if (pPair != usedHeaders.end() && pPair->second) {
+    if (usedHeaders.count(*pHeader) > 0) {
       return true;
     }
   }
@@ -81,9 +80,13 @@ UnusedHeaderFinder::markUsed (
 
   // Is the symbol declared in an included file and is it being used in the
   // main file?
-  if (!isFromMainFile(declarationLocation) && isFromMainFile(usageLocation)) {
-    const FileEntry* pFile = getFileEntry(declarationLocation);
-    usedHeaders_[pFile] = true;
+  FileID usageFileID = sourceManager_.getFileID(usageLocation);
+  FileID declarationFileID = sourceManager_.getFileID(declarationLocation);
+
+  if (usageFileID == sourceManager_.getMainFileID()
+   && declarationFileID != sourceManager_.getMainFileID())
+  {
+    usedHeaders_.insert(declarationFileID);
   }
 }
 
@@ -101,7 +104,7 @@ UnusedHeaderFinder::InclusionDirective (
   if (isFromMainFile(hashLoc)) {
     // Remember #include directive that included the header.
     IncludeDirective::Ptr pIncludeDirective(
-        new IncludeDirective(hashLoc, fileName, isAngled, pFile));
+        new IncludeDirective(hashLoc, fileName, isAngled));
     headerIncludeDirectiveMap_.insert(std::make_pair(
         pFile, pIncludeDirective));
   }
@@ -119,20 +122,21 @@ UnusedHeaderFinder::FileChanged (
     } else {
       ++includeDepth_;
 
-      const FileEntry* pFile = getFileEntry(newLocation);
+      FileID newFileID = sourceManager_.getFileID(newLocation);
+      const FileEntry* pFile = sourceManager_.getFileEntryForID(newFileID);
       if (pFile != 0) {
-        // Mark the header as unused if we haven't seen it before.
-        if (usedHeaders_.count(pFile) == 0) {
-          usedHeaders_.insert(std::make_pair(pFile, false));
-        }
-
         if (includeDepth_ == 1) {
-          // This is the header directly included by the main file.
-          includeDirectives_.push_back(headerIncludeDirectiveMap_[pFile]);
+          // This header is directly included by the main file.
+          HeaderIncludeDirectiveMap::iterator pPair =
+              headerIncludeDirectiveMap_.find(pFile);
+          IncludeDirective::Ptr pIncludeDirective(pPair->second);
+
+          pIncludeDirective->fileID_ = newFileID;
+          includeDirectives_.push_back(pIncludeDirective);
         } else {
           // Remember all headers transitively included from #include directive
           // in the main file.
-          includeDirectives_.back()->nestedHeaders_.insert(pFile);
+          includeDirectives_.back()->nestedHeaders_.insert(newFileID);
         }
       }
     }
@@ -172,7 +176,7 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
   {
     IncludeDirective::Ptr pIncludeDirective(*ppIncludeDirective);
 
-    if (usedHeaders_[pIncludeDirective->fileEntry_] == false)
+    if (usedHeaders_.count(pIncludeDirective->fileID_) == 0)
     {
       bool nestedHeaderUsed =
           pIncludeDirective->nestedHeaderUsed(usedHeaders_);
@@ -199,7 +203,7 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
             ppFile != nestedHeaders.end();
             ++ppFile)
         {
-          const FileEntry* pFile = *ppFile;
+          const FileEntry* pFile = sourceManager_.getFileEntryForID(*ppFile);
           std::cout << std::endl << pFile->getName();
         }
       } else {
