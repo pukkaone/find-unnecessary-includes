@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 using namespace clang;
 using namespace llvm;
@@ -17,6 +18,23 @@ using namespace llvm;
 namespace {
 
 const std::string PROGRAM_NAME("find-unnecessary-includes");
+const std::string EXIT_FAILURE_OPT("-c");
+int exitStatus = EXIT_SUCCESS;
+
+typedef std::vector<char*> Arguments;
+
+void
+handleCommandLineOptions (int argc, char* argv[], Arguments& filteredArgs)
+{
+  for (int i = 1; i < argc; ++i) {
+    if (EXIT_FAILURE_OPT.compare(argv[i]) == 0) {
+      exitStatus = EXIT_FAILURE;
+      continue;
+    }
+
+    filteredArgs.push_back(argv[i]);
+  }
+}
 
 void
 showHelp ()
@@ -39,21 +57,18 @@ showHelp ()
 bool
 handleFrontEndOptions (FrontendOptions& opt)
 {
-  if (opt.ShowVersion)
-  {
+  if (opt.ShowVersion) {
     std::cout << PROGRAM_NAME << ' ' << FUI_VERSION
         << "\nbased on " << getClangFullVersion() << std::endl;
     return false;
   }
 
-  if (opt.ShowHelp)
-  {
+  if (opt.ShowHelp) {
     showHelp();
     return false;
   }
 
-  if (opt.Inputs.empty() || opt.Inputs.at(0).second == "-")
-  {
+  if (opt.Inputs.empty() || opt.Inputs.at(0).second == "-") {
     showHelp();
     return false;
   }
@@ -86,6 +101,11 @@ public:
 int
 main (int argc, char* argv[])
 {
+  // Process our own command line options and remove them from the arguments
+  // before letting the compiler invocation process the arguments.
+  Arguments arguments;
+  handleCommandLineOptions(argc, argv, arguments);
+
   CompilerInstance compiler;
 
   // Create diagnostics so errors while processing command line arguments can
@@ -94,8 +114,8 @@ main (int argc, char* argv[])
 
   CompilerInvocation::CreateFromArgs(
       compiler.getInvocation(),
-      argv + 1,
-      argv + argc,
+      &arguments[0],
+      &arguments[0] + arguments.size(),
       compiler.getDiagnostics());
 
   if (!handleFrontEndOptions(compiler.getFrontendOpts())) {
@@ -128,5 +148,5 @@ main (int argc, char* argv[])
   compiler.ExecuteAction(action);
 
   llvm_shutdown();
-  return foundUnnecessary ? EXIT_FAILURE : EXIT_SUCCESS;
+  return foundUnnecessary ? EXIT_FAILURE : exitStatus;
 }
