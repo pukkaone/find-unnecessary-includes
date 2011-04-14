@@ -53,6 +53,10 @@ Run the commands:
     cmake ..
     make
 
+To run the tests:
+
+    make test
+
 
 ### Build using Visual C++ 2008
 
@@ -64,3 +68,5 @@ Run the commands:
 
 In Visual C++, open the `find-unnecessary-includes.sln` solution.  Build the
 `find-unnecessary-includes` project.
+
+To run the tests, build the `RUN_TESTS` project.

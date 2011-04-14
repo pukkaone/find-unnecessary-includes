@@ -102,7 +102,8 @@ public:
   UnusedHeaderFinder (
       clang::SourceManager& sourceManager, bool& foundUnnecessary):
     sourceManager_(sourceManager),
-    foundUnnecessary_(foundUnnecessary)
+    foundUnnecessary_(foundUnnecessary),
+    includeDepth_(0)
   { }
 
   /**
@@ -124,6 +125,11 @@ public:
   virtual void FileChanged(
       clang::SourceLocation newLocation,
       clang::PPCallbacks::FileChangeReason reason,
+      clang::SrcMgr::CharacteristicKind fileType);
+
+  virtual void FileSkipped(
+      const clang::FileEntry& file,
+      const clang::Token& fileNameToken,
       clang::SrcMgr::CharacteristicKind fileType);
 
   virtual void MacroExpands(

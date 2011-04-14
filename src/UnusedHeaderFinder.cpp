@@ -56,6 +56,14 @@ public:
     delegate_.FileChanged(newLocation, reason, fileType);
   }
 
+  virtual void FileSkipped (
+      const FileEntry& file,
+      const Token& fileNameToken,
+      SrcMgr::CharacteristicKind fileType)
+  {
+    delegate_.FileSkipped(file, fileNameToken, fileType);
+  }
+
   virtual void MacroExpands (const Token& nameToken, const MacroInfo* pMacro)
   {
     delegate_.MacroExpands(nameToken, pMacro);
@@ -142,6 +150,29 @@ UnusedHeaderFinder::FileChanged (
     }
   } else if (reason == PPCallbacks::ExitFile) {
     --includeDepth_;
+  }
+}
+
+void
+UnusedHeaderFinder::FileSkipped (
+      const FileEntry& file,
+      const Token& fileNameToken,
+      SrcMgr::CharacteristicKind fileType)
+{
+  FileID newFileID = sourceManager_.createFileID(
+      &file, fileNameToken.getLocation(), fileType);
+  if (includeDepth_ == 0) {
+    // This header is directly included by the main file.
+    HeaderIncludeDirectiveMap::iterator pPair =
+        headerIncludeDirectiveMap_.find(&file);
+    IncludeDirective::Ptr pIncludeDirective(pPair->second);
+
+    pIncludeDirective->fileID_ = newFileID;
+    includeDirectives_.push_back(pIncludeDirective);
+  } else if (!includeDirectives_.empty()) {
+    // Remember all headers transitively included from #include directive
+    // in the main file.
+    includeDirectives_.back()->nestedHeaders_.insert(newFileID);
   }
 }
 
