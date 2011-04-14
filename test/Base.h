@@ -7,6 +7,7 @@ enum Season { WINTER, SPRING, SUMMER, FALL };
 
 class Base {
 public:
+  int dataMember;
   void memberFunction();
 };
 

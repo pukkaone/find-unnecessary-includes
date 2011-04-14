@@ -170,7 +170,9 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
 {
   TraverseDecl(astContext.getTranslationUnitDecl());
 
-  for (IncludeDirectives::iterator ppIncludeDirective = includeDirectives_.begin();
+  foundUnnecessary_ = false;
+  for (IncludeDirectives::iterator ppIncludeDirective =
+          includeDirectives_.begin();
       ppIncludeDirective != includeDirectives_.end();
       ++ppIncludeDirective)
   {
@@ -188,6 +190,7 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
         continue;
       }
 
+      foundUnnecessary_ = true;
       std::cout << format(pIncludeDirective->sourceLocation_)
           << ": warning: #include "
           << (pIncludeDirective->angled_ ? '<' : '"')
@@ -195,17 +198,20 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
           << (pIncludeDirective->angled_ ? '>' : '"')
           << ' ';
       if (nestedHeaderUsed) {
-        std::cout << "is optional but it includes one or more headers which are used:";
+        std::cout << "is optional "
+            "but it includes one or more headers which are used:";
         
         const IncludeDirective::NestedHeaders& nestedHeaders =
             pIncludeDirective->nestedHeaders_;
-        for (IncludeDirective::NestedHeaders::const_iterator ppFile = nestedHeaders.begin();
+        for (IncludeDirective::NestedHeaders::const_iterator ppFile =
+                 nestedHeaders.begin();
             ppFile != nestedHeaders.end();
             ++ppFile)
         {
           FileID headerFileID = *ppFile;
           if (usedHeaders_.count(headerFileID)) {
-            const FileEntry* pFile = sourceManager_.getFileEntryForID(headerFileID);
+            const FileEntry* pFile = sourceManager_.getFileEntryForID(
+                headerFileID);
             std::cout << std::endl << pFile->getName();
           }
         }
@@ -247,6 +253,15 @@ bool
 UnusedHeaderFinder::VisitDeclRefExpr (DeclRefExpr* pExpr)
 {
   markUsed(pExpr->getDecl()->getLocation(), pExpr->getLocation());
+  return true;
+}
+
+bool
+UnusedHeaderFinder::VisitMemberExpr (MemberExpr* pExpr)
+{
+  markUsed(
+      pExpr->getMemberDecl()->getLocation(),
+      pExpr->getMemberLoc());
   return true;
 }
 

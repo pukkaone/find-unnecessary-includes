@@ -87,6 +87,8 @@ class UnusedHeaderFinder:
   typedef std::vector<IncludeDirective::Ptr> IncludeDirectives;
   IncludeDirectives includeDirectives_;
 
+  bool& foundUnnecessary_;
+
   bool isFromMainFile (clang::SourceLocation sourceLocation)
   { return sourceManager_.isFromMainFile(sourceLocation); }
 
@@ -97,8 +99,10 @@ class UnusedHeaderFinder:
   std::string format(clang::SourceLocation sourceLocation);
 
 public:
-  UnusedHeaderFinder (clang::SourceManager& sourceManager):
-    sourceManager_(sourceManager)
+  UnusedHeaderFinder (
+      clang::SourceManager& sourceManager, bool& foundUnnecessary):
+    sourceManager_(sourceManager),
+    foundUnnecessary_(foundUnnecessary)
   { }
 
   /**
@@ -139,6 +143,9 @@ public:
   
   // Called when a variable, function, or enum constant is used.
   bool VisitDeclRefExpr(clang::DeclRefExpr* pExpr);
+  
+  // Called when a class, struct, or union member is used.
+  bool VisitMemberExpr(clang::MemberExpr* pExpr);
 
   // Called when a member function is called.
   bool VisitCXXMemberCallExpr(clang::CXXMemberCallExpr* pExpr);

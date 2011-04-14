@@ -29,6 +29,8 @@ showHelp ()
       "  --version               show version\n"
       "  -D<macro>[=def]         define preprocessor macro\n"
       "  -I<dir>                 add include directory\n"
+      "  -c                      exit with status 1\n"
+      "  -fms-extensions         enable Microsoft extensions\n"
       "\n"
       "Many clang options are also supported.  "
       "See the clang manual for more options.\n";
@@ -61,12 +63,18 @@ handleFrontEndOptions (FrontendOptions& opt)
 
 class UnnecessaryIncludeFinderAction: public ASTFrontendAction
 {
+  bool& foundUnnecessary_;
+
 public:
-  ASTConsumer* CreateASTConsumer(
-      CompilerInstance &compiler, StringRef inputFile)
+  UnnecessaryIncludeFinderAction (bool& foundUnnecessary):
+      foundUnnecessary_(foundUnnecessary)
+  { }
+
+  ASTConsumer* CreateASTConsumer (
+      CompilerInstance& compiler, StringRef inputFile)
   {
     UnusedHeaderFinder* pFinder = new UnusedHeaderFinder(
-        compiler.getSourceManager());
+        compiler.getSourceManager(), foundUnnecessary_);
     compiler.getPreprocessor().addPPCallbacks(
         pFinder->createPreprocessorCallbacks());
     return pFinder;
@@ -111,12 +119,14 @@ main (int argc, char* argv[])
     // template referencing _invalid_parameter_noinfo but is not declared at
     // that point. It is declared in the <xutility> header file, which is
     // included later.
-    compiler.getPreprocessorOpts().addMacroDef("_invalid_parameter_noinfo=__noop");
+    compiler.getPreprocessorOpts().addMacroDef(
+        "_invalid_parameter_noinfo=__noop");
   }
 
-  UnnecessaryIncludeFinderAction action;
+  bool foundUnnecessary;
+  UnnecessaryIncludeFinderAction action(foundUnnecessary);
   compiler.ExecuteAction(action);
 
   llvm_shutdown();
-  return EXIT_SUCCESS;
+  return foundUnnecessary ? EXIT_FAILURE : EXIT_SUCCESS;
 }
