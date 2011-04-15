@@ -20,8 +20,8 @@ SourceFile::traverse (SourceVisitor& visitor)
       ppInclude != includeDirectives_.end();
       ++ppInclude)
   {
-    IncludeDirective::Ptr pInclude = *ppInclude;
-    pInclude->pHeader_->traverse(visitor);
+    IncludeDirective::Ptr pIncludeDirective(*ppInclude);
+    pIncludeDirective->pHeader_->traverse(visitor);
   }
 }
 
@@ -59,6 +59,7 @@ class UsedSourceReporter: public SourceVisitor
 {
   const SourceFile::UsedHeaders& usedHeaders_;
   SourceManager& sourceManager_;
+  SourceFile::UsedHeaders visitedHeaders_;
 
 public:
   UsedSourceReporter (
@@ -70,6 +71,11 @@ public:
   virtual bool visit (SourceFile* pSource)
   {
     FileID fileID = pSource->fileID_;
+    if (visitedHeaders_.count(fileID)) {
+      return false;
+    }
+    visitedHeaders_.insert(fileID);
+
     if (usedHeaders_.count(fileID)) {
       const FileEntry* pFile = sourceManager_.getFileEntryForID(fileID);
       std::cout << std::endl << pFile->getName();
@@ -80,13 +86,11 @@ public:
 
 void
 SourceFile::reportNestedUsedHeaders (
-    SourceFile::Ptr pParentSource,
-    SourceManager& sourceManager)
+    SourceFile::Ptr pParentSource, SourceManager& sourceManager)
 {
   UsedSourceReporter reporter(pParentSource->usedHeaders_, sourceManager);
   traverse(reporter);
 }
-
 
 std::string
 SourceFile::format (SourceLocation sourceLocation, SourceManager& sourceManager)
