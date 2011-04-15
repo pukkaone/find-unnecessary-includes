@@ -16,9 +16,6 @@
 #include <string>
 #include <vector>
 
-/** set of header files marked as used */
-typedef llvm::DenseSet<clang::FileID> UsedHeaders;
-
 class SourceFile;
 
 /**
@@ -77,6 +74,10 @@ public:
   typedef std::vector<IncludeDirective::Ptr> IncludeDirectives;
   IncludeDirectives includeDirectives_;
 
+  /** set of header files marked as used */
+  typedef llvm::DenseSet<clang::FileID> UsedHeaders;
+  UsedHeaders usedHeaders_;
+
   SourceFile (clang::FileID fileID):
     fileID_(fileID)
   { }
@@ -84,15 +85,26 @@ public:
   void traverse(SourceVisitor& visitor);
 
   /**
-   * Checks if any of the header files this header includes is used.
+   * Checks if any of the header files included by this source file are used.
    */
-  bool haveNestedUsedHeader(const UsedHeaders& usedHeaders);
+  bool haveNestedUsedHeader(SourceFile::Ptr pParentSource);
 
   /**
-   * Reports the header files this header includes that are used.
+   * Reports the header files included by this source file that are used.
    */
   void reportNestedUsedHeaders(
-      const UsedHeaders& usedHeaders, clang::SourceManager& sourceManager);
+      SourceFile::Ptr pParentSource, clang::SourceManager& sourceManager);
+
+  std::string format(
+      clang::SourceLocation sourceLocation,
+      clang::SourceManager& sourceManager);
+
+  /**
+   * Reports unnecessary #include directives in this source file.
+   *
+   * @return true if an unnecessary #include directive was found
+   */
+  bool reportUnnecessaryIncludes(clang::SourceManager& sourceManager);
 };
 
 /**
@@ -123,9 +135,6 @@ class UnusedHeaderFinder:
   // main source file
   SourceFile::Ptr pMainSource_;
 
-  // set of header files marked as used
-  UsedHeaders usedHeaders_;
-
   bool& foundUnnecessary_;
 
   bool isFromMainFile (clang::SourceLocation sourceLocation)
@@ -140,10 +149,6 @@ class UnusedHeaderFinder:
   void markUsed(
       clang::SourceLocation declarationLocation,
       clang::SourceLocation usageLocation);
-
-  std::string format(clang::SourceLocation sourceLocation);
-
-  void reportUnnecessaryIncludes(SourceFile::Ptr pParentSource);
 
 public:
   UnusedHeaderFinder (
