@@ -12,23 +12,25 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include <map>
-#include <set>
+#include <stack>
 #include <string>
 #include <vector>
 
 /** set of header files marked as used */
 typedef llvm::DenseSet<clang::FileID> UsedHeaders;
 
+class SourceFile;
+
 /**
- * Information about #include directive appearing in the source code.
+ * #include directive appearing in the source code.
  */
-struct IncludeDirective: public llvm::RefCountedBase<IncludeDirective>
+class IncludeDirective: public llvm::RefCountedBase<IncludeDirective>
 {
+public:
   typedef llvm::IntrusiveRefCntPtr<IncludeDirective> Ptr;
 
   /** location of #include directive in source code */
-  clang::SourceLocation sourceLocation_;
+  clang::SourceLocation directiveLocation_;
 
   /**
    * header file name as it appears in the source without surrounding delimiters
@@ -38,26 +40,59 @@ struct IncludeDirective: public llvm::RefCountedBase<IncludeDirective>
   /** true if angle brackets surrounded the file name in the source */
   bool angled_;
 
-  /** actual file included by #include directive */
-  clang::FileID fileID_;
-
-  /** header files that this header file includes directly or indirectly */
-  typedef llvm::DenseSet<clang::FileID> NestedHeaders;
-  NestedHeaders nestedHeaders_;
+  /** header file included by #include directive */
+  SourceFile* pHeader_;
 
   IncludeDirective(
       clang::SourceLocation hashLoc,
       llvm::StringRef fileName,
       bool angled):
-    sourceLocation_(hashLoc),
+    directiveLocation_(hashLoc),
     fileName_(fileName),
-    angled_(angled)
+    angled_(angled),
+    pHeader_(0)
   { }
+};
+
+class SourceVisitor
+{
+public:
+  /**
+   * Return true if traversal should continue.
+   */
+  virtual bool visit(SourceFile* pSource) = 0;
+};
+
+/**
+ * Main source file or header file.
+ */
+class SourceFile: public llvm::RefCountedBase<SourceFile>
+{
+public:
+  typedef llvm::IntrusiveRefCntPtr<SourceFile> Ptr;
+
+  clang::FileID fileID_;
+
+  /** #include directives appearing in the source file */
+  typedef std::vector<IncludeDirective::Ptr> IncludeDirectives;
+  IncludeDirectives includeDirectives_;
+
+  SourceFile (clang::FileID fileID):
+    fileID_(fileID)
+  { }
+
+  void traverse(SourceVisitor& visitor);
 
   /**
    * Checks if any of the header files this header includes is used.
    */
-  bool nestedHeaderUsed(const UsedHeaders& usedHeaders);
+  bool haveNestedUsedHeader(const UsedHeaders& usedHeaders);
+
+  /**
+   * Reports the header files this header includes that are used.
+   */
+  void reportNestedUsedHeaders(
+      const UsedHeaders& usedHeaders, clang::SourceManager& sourceManager);
 };
 
 /**
@@ -72,25 +107,35 @@ class UnusedHeaderFinder:
 {
   clang::SourceManager& sourceManager_;
 
+  // map file to last #include directive that includes it 
+  typedef llvm::DenseMap<const clang::FileEntry*, IncludeDirective::Ptr>
+      FileToIncludeDirectiveMap;
+  FileToIncludeDirectiveMap fileToIncludeDirectiveMap_;
+
+  // map file to source
+  typedef llvm::DenseMap<const clang::FileEntry*, SourceFile::Ptr>
+      FileToSourceMap;
+  FileToSourceMap fileToSourceMap_;
+
+  // stack of included files
+  std::stack<SourceFile::Ptr> includeStack_;
+
+  // main source file
+  SourceFile::Ptr pMainSource_;
+
   // set of header files marked as used
   UsedHeaders usedHeaders_;
-
-  // map header to #include directive that includes it 
-  typedef llvm::DenseMap<const clang::FileEntry*, IncludeDirective::Ptr>
-      HeaderIncludeDirectiveMap;
-  HeaderIncludeDirectiveMap headerIncludeDirectiveMap_;
-
-  // include nesting depth (0 = currently in main file)
-  int includeDepth_;
-
-  // #include directives in main file
-  typedef std::vector<IncludeDirective::Ptr> IncludeDirectives;
-  IncludeDirectives includeDirectives_;
 
   bool& foundUnnecessary_;
 
   bool isFromMainFile (clang::SourceLocation sourceLocation)
   { return sourceManager_.isFromMainFile(sourceLocation); }
+
+  SourceFile::Ptr getSource(
+      const clang::FileEntry* pFile, clang::FileID fileID);
+
+  SourceFile::Ptr enterHeader(
+      const clang::FileEntry* pFile, clang::FileID fileID);
 
   void markUsed(
       clang::SourceLocation declarationLocation,
@@ -98,12 +143,13 @@ class UnusedHeaderFinder:
 
   std::string format(clang::SourceLocation sourceLocation);
 
+  void reportUnnecessaryIncludes(SourceFile::Ptr pParentSource);
+
 public:
   UnusedHeaderFinder (
       clang::SourceManager& sourceManager, bool& foundUnnecessary):
     sourceManager_(sourceManager),
-    foundUnnecessary_(foundUnnecessary),
-    includeDepth_(0)
+    foundUnnecessary_(foundUnnecessary)
   { }
 
   /**

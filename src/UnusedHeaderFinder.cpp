@@ -9,19 +9,82 @@
 using namespace clang;
 using namespace llvm;
 
-bool
-IncludeDirective::nestedHeaderUsed (const UsedHeaders& usedHeaders)
+void
+SourceFile::traverse (SourceVisitor& visitor)
 {
-  for (NestedHeaders::iterator pHeader = nestedHeaders_.begin();
-      pHeader != nestedHeaders_.end();
-      ++pHeader)
-  {
-    if (usedHeaders.count(*pHeader)) {
-      return true;
-    }
+  if (!visitor.visit(this)) {
+    return;
   }
 
-  return false;
+  for (IncludeDirectives::iterator ppInclude = includeDirectives_.begin();
+      ppInclude != includeDirectives_.end();
+      ++ppInclude)
+  {
+    IncludeDirective::Ptr pInclude = *ppInclude;
+    pInclude->pHeader_->traverse(visitor);
+  }
+}
+
+class UsedSourceFinder: public SourceVisitor
+{
+  const UsedHeaders& usedHeaders_;
+
+public:
+  bool found_;
+
+  UsedSourceFinder (const UsedHeaders& usedHeaders):
+    usedHeaders_(usedHeaders),
+    found_(false)
+  { }
+
+  virtual bool visit (SourceFile* pSource)
+  {
+    if (usedHeaders_.count(pSource->fileID_)) {
+      found_ = true;
+      return false;
+    }
+    return true;
+  }
+};
+
+bool
+SourceFile::haveNestedUsedHeader (const UsedHeaders& usedHeaders)
+{
+  UsedSourceFinder finder(usedHeaders);
+  traverse(finder);
+  return finder.found_;
+}
+
+class UsedSourceReporter: public SourceVisitor
+{
+  const UsedHeaders& usedHeaders_;
+  SourceManager& sourceManager_;
+
+public:
+  UsedSourceReporter (
+      const UsedHeaders& usedHeaders, SourceManager& sourceManager):
+    usedHeaders_(usedHeaders),
+    sourceManager_(sourceManager)
+  { }
+
+  virtual bool visit (SourceFile* pSource)
+  {
+    FileID fileID = pSource->fileID_;
+    if (usedHeaders_.count(fileID)) {
+      const FileEntry* pFile = sourceManager_.getFileEntryForID(fileID);
+      std::cout << std::endl << pFile->getName();
+    }
+    return true;
+  }
+};
+
+void
+SourceFile::reportNestedUsedHeaders (
+    const UsedHeaders& usedHeaders,
+    SourceManager& sourceManager)
+{
+  UsedSourceReporter reporter(usedHeaders, sourceManager);
+  traverse(reporter);
 }
 
 namespace {
@@ -108,14 +171,46 @@ UnusedHeaderFinder::InclusionDirective (
     SourceLocation endLoc,
     const SmallVectorImpl<char>& rawPath)
 {
-  // Is the #include directive in the main file?
-  if (isFromMainFile(hashLoc)) {
-    // Remember #include directive that included the header.
-    IncludeDirective::Ptr pIncludeDirective(
-        new IncludeDirective(hashLoc, fileName, isAngled));
-    headerIncludeDirectiveMap_.insert(std::make_pair(
-        pFile, pIncludeDirective));
+  // Remember #include directive that included the file.
+  IncludeDirective::Ptr pIncludeDirective(
+      new IncludeDirective(hashLoc, fileName, isAngled));
+
+  fileToIncludeDirectiveMap_.erase(pFile);
+  fileToIncludeDirectiveMap_.insert(std::make_pair(pFile, pIncludeDirective));
+}
+
+SourceFile::Ptr
+UnusedHeaderFinder::getSource (const FileEntry* pFile, FileID fileID)
+{
+  FileToSourceMap::iterator pPair = fileToSourceMap_.find(pFile);
+  if (pPair != fileToSourceMap_.end()) {
+    return pPair->second;
   }
+
+  SourceFile::Ptr pSource(new SourceFile(fileID));
+  fileToSourceMap_.insert(std::make_pair(pFile, pSource));
+  return pSource;
+}
+
+SourceFile::Ptr
+UnusedHeaderFinder::enterHeader (const FileEntry* pFile, FileID fileID)
+{
+  SourceFile::Ptr pHeader = getSource(pFile, fileID);
+
+  // Find the #include directive that included this header.
+  FileToIncludeDirectiveMap::iterator pPair =
+      fileToIncludeDirectiveMap_.find(pFile);
+  IncludeDirective::Ptr pIncludeDirective(pPair->second);
+
+  // The #include directive did not have the header during construction.
+  // Set it now.
+  pIncludeDirective->pHeader_ = pHeader.getPtr();
+
+  // Remember the parent file included this file.
+  SourceFile::Ptr pParentSource = includeStack_.top();
+  pParentSource->includeDirectives_.push_back(pIncludeDirective);
+
+  return pHeader;
 }
 
 void
@@ -125,31 +220,26 @@ UnusedHeaderFinder::FileChanged (
     SrcMgr::CharacteristicKind fileType)
 {
   if (reason == PPCallbacks::EnterFile) {
-    if (isFromMainFile(newLocation)) {
-      includeDepth_ = 0;
-    } else {
-      ++includeDepth_;
-
-      FileID newFileID = sourceManager_.getFileID(newLocation);
-      const FileEntry* pFile = sourceManager_.getFileEntryForID(newFileID);
-      if (pFile != 0) {
-        if (includeDepth_ == 1) {
-          // This header is directly included by the main file.
-          HeaderIncludeDirectiveMap::iterator pPair =
-              headerIncludeDirectiveMap_.find(pFile);
-          IncludeDirective::Ptr pIncludeDirective(pPair->second);
-
-          pIncludeDirective->fileID_ = newFileID;
-          includeDirectives_.push_back(pIncludeDirective);
-        } else if (!includeDirectives_.empty()) {
-          // Remember all headers transitively included from #include directive
-          // in the main file.
-          includeDirectives_.back()->nestedHeaders_.insert(newFileID);
-        }
+    FileID newFileID = sourceManager_.getFileID(newLocation);
+    const FileEntry* pFile = sourceManager_.getFileEntryForID(newFileID);
+    if (pFile != 0) {
+      if (newFileID == sourceManager_.getMainFileID()) {
+        // Entering main source file for the first time.
+        pMainSource_ = getSource(pFile, newFileID);
+        includeStack_.push(pMainSource_);
+      } else {
+        // Push new file onto include stack.
+        SourceFile::Ptr pHeader(enterHeader(pFile, newFileID));
+        includeStack_.push(pHeader);
       }
+    } else {
+      // Entering built-in source.  There's no real file.
+      SourceFile::Ptr pHeader(getSource(0, newFileID));
+      includeStack_.push(pHeader);
     }
   } else if (reason == PPCallbacks::ExitFile) {
-    --includeDepth_;
+    // Pop include stack.
+    includeStack_.pop();
   }
 }
 
@@ -159,21 +249,8 @@ UnusedHeaderFinder::FileSkipped (
       const Token& fileNameToken,
       SrcMgr::CharacteristicKind fileType)
 {
-  FileID newFileID = sourceManager_.createFileID(
-      &file, fileNameToken.getLocation(), fileType);
-  if (includeDepth_ == 0) {
-    // This header is directly included by the main file.
-    HeaderIncludeDirectiveMap::iterator pPair =
-        headerIncludeDirectiveMap_.find(&file);
-    IncludeDirective::Ptr pIncludeDirective(pPair->second);
-
-    pIncludeDirective->fileID_ = newFileID;
-    includeDirectives_.push_back(pIncludeDirective);
-  } else if (!includeDirectives_.empty()) {
-    // Remember all headers transitively included from #include directive
-    // in the main file.
-    includeDirectives_.back()->nestedHeaders_.insert(newFileID);
-  }
+  FileID dummyFileID;
+  enterHeader(&file, dummyFileID);
 }
 
 void
@@ -197,24 +274,21 @@ UnusedHeaderFinder::format (SourceLocation sourceLocation)
 }
 
 void
-UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
+UnusedHeaderFinder::reportUnnecessaryIncludes (SourceFile::Ptr pParentSource)
 {
-  TraverseDecl(astContext.getTranslationUnitDecl());
-
-  foundUnnecessary_ = false;
-  for (IncludeDirectives::iterator ppIncludeDirective =
-          includeDirectives_.begin();
-      ppIncludeDirective != includeDirectives_.end();
+  SourceFile::IncludeDirectives& includeDirectives =
+      pParentSource->includeDirectives_;
+  for (SourceFile::IncludeDirectives::iterator ppIncludeDirective =
+          includeDirectives.begin();
+      ppIncludeDirective != includeDirectives.end();
       ++ppIncludeDirective)
   {
     IncludeDirective::Ptr pIncludeDirective(*ppIncludeDirective);
 
-    if (usedHeaders_.count(pIncludeDirective->fileID_) == false)
-    {
-      bool nestedHeaderUsed =
-          pIncludeDirective->nestedHeaderUsed(usedHeaders_);
-      if (nestedHeaderUsed && pIncludeDirective->angled_)
-      {
+    SourceFile* pHeader = pIncludeDirective->pHeader_;
+    if (usedHeaders_.count(pHeader->fileID_) == false) {
+      bool haveNestedUsedHeader = pHeader->haveNestedUsedHeader(usedHeaders_);
+      if (haveNestedUsedHeader && pIncludeDirective->angled_) {
         // This header is unused but one of headers it includes is used.
         // Don't complain if the #include directive surrounded the file name
         // with angle brackets.
@@ -222,30 +296,16 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
       }
 
       foundUnnecessary_ = true;
-      std::cout << format(pIncludeDirective->sourceLocation_)
+      std::cout << format(pIncludeDirective->directiveLocation_)
           << ": warning: #include "
           << (pIncludeDirective->angled_ ? '<' : '"')
           << pIncludeDirective->fileName_.str()
           << (pIncludeDirective->angled_ ? '>' : '"')
           << ' ';
-      if (nestedHeaderUsed) {
+      if (haveNestedUsedHeader) {
         std::cout << "is optional "
             "but it includes one or more headers which are used:";
-        
-        const IncludeDirective::NestedHeaders& nestedHeaders =
-            pIncludeDirective->nestedHeaders_;
-        for (IncludeDirective::NestedHeaders::const_iterator ppFile =
-                 nestedHeaders.begin();
-            ppFile != nestedHeaders.end();
-            ++ppFile)
-        {
-          FileID headerFileID = *ppFile;
-          if (usedHeaders_.count(headerFileID)) {
-            const FileEntry* pFile = sourceManager_.getFileEntryForID(
-                headerFileID);
-            std::cout << std::endl << pFile->getName();
-          }
-        }
+        pHeader->reportNestedUsedHeaders(usedHeaders_, sourceManager_);  
       } else {
         std::cout << "is unnecessary";
       }
@@ -253,6 +313,15 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
       std::cout << std::endl;
     }
   }
+}
+
+void
+UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
+{
+  TraverseDecl(astContext.getTranslationUnitDecl());
+
+  foundUnnecessary_ = false;
+  reportUnnecessaryIncludes(pMainSource_);
 }
 
 bool

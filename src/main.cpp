@@ -1,13 +1,10 @@
 // $Id$
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CompilerInstance.h"
-#include "clang/Frontend/CompilerInvocation.h"
 #include "clang/Lex/Preprocessor.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "UnusedHeaderFinder.h"
 #include "version.h"
-#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <vector>
@@ -85,7 +82,7 @@ public:
       foundUnnecessary_(foundUnnecessary)
   { }
 
-  ASTConsumer* CreateASTConsumer (
+  virtual ASTConsumer* CreateASTConsumer (
       CompilerInstance& compiler, StringRef inputFile)
   {
     UnusedHeaderFinder* pFinder = new UnusedHeaderFinder(
@@ -137,8 +134,7 @@ main (int argc, char* argv[])
     // Visual C++ does name resolution at template instantiation, but clang does
     // name resolution at template definition.  A Microsoft header defines a
     // template referencing _invalid_parameter_noinfo but is not declared at
-    // that point. It is declared in the <xutility> header file, which is
-    // included later.
+    // that point. It is declared later in the <xutility> header file.
     compiler.getPreprocessorOpts().addMacroDef(
         "_invalid_parameter_noinfo=__noop");
   }
