@@ -28,6 +28,7 @@ SourceFile::traverse (SourceVisitor& visitor)
 class UsedSourceFinder: public SourceVisitor
 {
   const SourceFile::UsedHeaders& usedHeaders_;
+  SourceFile::UsedHeaders visitedHeaders_;
 
 public:
   bool found_;
@@ -39,7 +40,13 @@ public:
 
   virtual bool visit (SourceFile* pSource)
   {
-    if (usedHeaders_.count(pSource->fileID_)) {
+    FileID fileID = pSource->fileID_;
+    if (visitedHeaders_.count(fileID)) {
+      return false;
+    }
+    visitedHeaders_.insert(fileID);
+
+    if (usedHeaders_.count(fileID)) {
       found_ = true;
       return false;
     }
@@ -133,7 +140,7 @@ SourceFile::reportUnnecessaryIncludes (SourceManager& sourceManager)
           << ' ';
       if (haveNestedUsedHeader) {
         std::cout << "is optional "
-            "but it includes one or more headers which are used:";
+            "but it includes these used headers:";
         pHeader->reportNestedUsedHeaders(pSource, sourceManager);
       } else {
         std::cout << "is unnecessary";

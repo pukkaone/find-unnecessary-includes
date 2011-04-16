@@ -1,2 +1,2 @@
-member-function-unused.cpp:1:1: warning: #include "Derived.h" is optional but it includes one or more headers which are used:
+member-function-unused.cpp:1:1: warning: #include "Derived.h" is optional but it includes these used headers:
 ./Base.h
