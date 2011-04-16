@@ -105,7 +105,7 @@ SourceFile::format (SourceLocation sourceLocation, SourceManager& sourceManager)
 bool
 SourceFile::reportUnnecessaryIncludes (SourceManager& sourceManager)
 {
-  bool foundUnnecessary = true;
+  bool foundUnnecessary = false;
 
   for (IncludeDirectives::iterator ppInclude = includeDirectives_.begin();
       ppInclude != includeDirectives_.end();

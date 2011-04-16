@@ -75,11 +75,11 @@ handleFrontEndOptions (FrontendOptions& opt)
 
 class UnnecessaryIncludeFinderAction: public ASTFrontendAction
 {
-  bool& foundUnnecessary_;
-
 public:
-  UnnecessaryIncludeFinderAction (bool& foundUnnecessary):
-      foundUnnecessary_(foundUnnecessary)
+  bool foundUnnecessary_;
+
+  UnnecessaryIncludeFinderAction ():
+      foundUnnecessary_(false)
   { }
 
   virtual ASTConsumer* CreateASTConsumer (
@@ -139,10 +139,9 @@ main (int argc, char* argv[])
         "_invalid_parameter_noinfo=__noop");
   }
 
-  bool foundUnnecessary;
-  UnnecessaryIncludeFinderAction action(foundUnnecessary);
+  UnnecessaryIncludeFinderAction action;
   compiler.ExecuteAction(action);
 
   llvm_shutdown();
-  return foundUnnecessary ? EXIT_FAILURE : exitStatus;
+  return action.foundUnnecessary_ ? EXIT_FAILURE : exitStatus;
 }
