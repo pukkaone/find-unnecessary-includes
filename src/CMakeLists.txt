@@ -30,7 +30,7 @@ set(LLVM_USED_LIBS
 
 add_clang_executable(find-unnecessary-includes
     main.cpp
-    UnusedHeaderFinder.cpp
+    UnnecessaryIncludeFinder.cpp
 )
 
 set(FUI_OPTIONS "")

@@ -3,7 +3,7 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "UnusedHeaderFinder.h"
+#include "UnnecessaryIncludeFinder.h"
 #include "version.h"
 #include <cstdlib>
 #include <iostream>
@@ -85,7 +85,7 @@ public:
   virtual ASTConsumer* CreateASTConsumer (
       CompilerInstance& compiler, StringRef inputFile)
   {
-    UnusedHeaderFinder* pFinder = new UnusedHeaderFinder(
+    UnnecessaryIncludeFinder* pFinder = new UnnecessaryIncludeFinder(
         compiler.getSourceManager(), foundUnnecessary_);
     compiler.getPreprocessor().addPPCallbacks(
         pFinder->createPreprocessorCallbacks());
@@ -136,7 +136,7 @@ main (int argc, char* argv[])
     // template referencing _invalid_parameter_noinfo but is not declared at
     // that point. It is declared later in the <xutility> header file.
     compiler.getPreprocessorOpts().addMacroDef(
-        "_invalid_parameter_noinfo=__noop");
+        "_invalid_parameter_noinfo=");
   }
 
   UnnecessaryIncludeFinderAction action;

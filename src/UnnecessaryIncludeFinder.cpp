@@ -1,5 +1,5 @@
 // $Id$
-#include "UnusedHeaderFinder.h"
+#include "UnnecessaryIncludeFinder.h"
 #include "clang/AST/Decl.h"
 #include "clang/Basic/FileManager.h"
 #include "llvm/Support/raw_ostream.h"
@@ -157,10 +157,10 @@ namespace {
 
 class PreprocessorCallbacks: public clang::PPCallbacks
 {
-  UnusedHeaderFinder& delegate_;
+  UnnecessaryIncludeFinder& delegate_;
 
 public:
-  PreprocessorCallbacks (UnusedHeaderFinder& delegate):
+  PreprocessorCallbacks (UnnecessaryIncludeFinder& delegate):
     delegate_(delegate)
   { }
 
@@ -202,13 +202,13 @@ public:
 }//namespace
 
 PPCallbacks*
-UnusedHeaderFinder::createPreprocessorCallbacks ()
+UnnecessaryIncludeFinder::createPreprocessorCallbacks ()
 {
   return new PreprocessorCallbacks(*this);
 }
 
 void
-UnusedHeaderFinder::markUsed (
+UnnecessaryIncludeFinder::markUsed (
     SourceLocation declarationLocation, SourceLocation usageLocation)
 {
   // Is the symbol declared in an included file and is it being used in the
@@ -228,7 +228,7 @@ UnusedHeaderFinder::markUsed (
 }
 
 void
-UnusedHeaderFinder::InclusionDirective (
+UnnecessaryIncludeFinder::InclusionDirective (
     SourceLocation hashLoc,
     const Token& includeToken,
     StringRef fileName,
@@ -246,7 +246,7 @@ UnusedHeaderFinder::InclusionDirective (
 }
 
 SourceFile::Ptr
-UnusedHeaderFinder::getSource (const FileEntry* pFile, FileID fileID)
+UnnecessaryIncludeFinder::getSource (const FileEntry* pFile, FileID fileID)
 {
   FileToSourceMap::iterator pPair = fileToSourceMap_.find(pFile);
   if (pPair != fileToSourceMap_.end()) {
@@ -259,7 +259,7 @@ UnusedHeaderFinder::getSource (const FileEntry* pFile, FileID fileID)
 }
 
 SourceFile::Ptr
-UnusedHeaderFinder::enterHeader (const FileEntry* pFile, FileID fileID)
+UnnecessaryIncludeFinder::enterHeader (const FileEntry* pFile, FileID fileID)
 {
   SourceFile::Ptr pHeader = getSource(pFile, fileID);
 
@@ -280,7 +280,7 @@ UnusedHeaderFinder::enterHeader (const FileEntry* pFile, FileID fileID)
 }
 
 void
-UnusedHeaderFinder::FileChanged (
+UnnecessaryIncludeFinder::FileChanged (
     SourceLocation newLocation,
     PPCallbacks::FileChangeReason reason,
     SrcMgr::CharacteristicKind fileType)
@@ -311,7 +311,7 @@ UnusedHeaderFinder::FileChanged (
 }
 
 void
-UnusedHeaderFinder::FileSkipped (
+UnnecessaryIncludeFinder::FileSkipped (
       const FileEntry& file,
       const Token& fileNameToken,
       SrcMgr::CharacteristicKind fileType)
@@ -321,7 +321,7 @@ UnusedHeaderFinder::FileSkipped (
 }
 
 void
-UnusedHeaderFinder::MacroExpands (
+UnnecessaryIncludeFinder::MacroExpands (
     const Token& nameToken, const MacroInfo* pMacro)
 {
   // Ignore expansion of builtin macros like __LINE__.
@@ -331,7 +331,7 @@ UnusedHeaderFinder::MacroExpands (
 }
 
 void
-UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
+UnnecessaryIncludeFinder::HandleTranslationUnit (ASTContext& astContext)
 {
   TraverseDecl(astContext.getTranslationUnitDecl());
 
@@ -339,21 +339,21 @@ UnusedHeaderFinder::HandleTranslationUnit (ASTContext& astContext)
 }
 
 bool
-UnusedHeaderFinder::VisitTypedefTypeLoc (TypedefTypeLoc typeLoc)
+UnnecessaryIncludeFinder::VisitTypedefTypeLoc (TypedefTypeLoc typeLoc)
 {
   markUsed(typeLoc.getTypedefDecl()->getLocation(), typeLoc.getBeginLoc());
   return true;
 }
 
 bool
-UnusedHeaderFinder::VisitTagTypeLoc(TagTypeLoc typeLoc)
+UnnecessaryIncludeFinder::VisitTagTypeLoc(TagTypeLoc typeLoc)
 {
   markUsed(typeLoc.getDecl()->getLocation(), typeLoc.getBeginLoc());
   return true;
 }
 
 bool
-UnusedHeaderFinder::VisitTemplateSpecializationTypeLoc (
+UnnecessaryIncludeFinder::VisitTemplateSpecializationTypeLoc (
     TemplateSpecializationTypeLoc typeLoc)
 {
   CXXRecordDecl* pCXXRecordDecl = typeLoc.getTypePtr()->getAsCXXRecordDecl();
@@ -364,14 +364,14 @@ UnusedHeaderFinder::VisitTemplateSpecializationTypeLoc (
 }
 
 bool
-UnusedHeaderFinder::VisitDeclRefExpr (DeclRefExpr* pExpr)
+UnnecessaryIncludeFinder::VisitDeclRefExpr (DeclRefExpr* pExpr)
 {
   markUsed(pExpr->getDecl()->getLocation(), pExpr->getLocation());
   return true;
 }
 
 bool
-UnusedHeaderFinder::VisitMemberExpr (MemberExpr* pExpr)
+UnnecessaryIncludeFinder::VisitMemberExpr (MemberExpr* pExpr)
 {
   markUsed(
       pExpr->getMemberDecl()->getLocation(),
@@ -380,7 +380,7 @@ UnusedHeaderFinder::VisitMemberExpr (MemberExpr* pExpr)
 }
 
 bool
-UnusedHeaderFinder::VisitCXXMemberCallExpr (CXXMemberCallExpr* pExpr)
+UnnecessaryIncludeFinder::VisitCXXMemberCallExpr (CXXMemberCallExpr* pExpr)
 {
   markUsed(
       pExpr->getMethodDecl()->getLocation(),
