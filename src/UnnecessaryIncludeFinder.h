@@ -6,13 +6,13 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Frontend/FrontendAction.h"
 #include "clang/Lex/MacroInfo.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Token.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include <stack>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -32,22 +32,21 @@ public:
   /**
    * header file name as it appears in the source without surrounding delimiters
    */
-  llvm::StringRef fileName_;
+  std::string fileName_;
 
   /** true if angle brackets surrounded the file name in the source */
   bool angled_;
 
   /** header file included by #include directive */
-  SourceFile* pHeader_;
+  llvm::IntrusiveRefCntPtr<SourceFile> pHeader_;
 
   IncludeDirective(
       clang::SourceLocation hashLoc,
       llvm::StringRef fileName,
       bool angled):
     directiveLocation_(hashLoc),
-    fileName_(fileName),
-    angled_(angled),
-    pHeader_(0)
+    fileName_(fileName.str()),
+    angled_(angled)
   { }
 };
 
@@ -60,40 +59,44 @@ public:
   virtual bool visit(SourceFile* pSource) = 0;
 };
 
+typedef std::set<std::string> UsedHeaders;
+
 /**
  * Main source file or header file.
  */
 class SourceFile: public llvm::RefCountedBase<SourceFile>
 {
+  std::string name_;
+
 public:
   typedef llvm::IntrusiveRefCntPtr<SourceFile> Ptr;
-
-  clang::FileID fileID_;
 
   /** #include directives appearing in the source file */
   typedef std::vector<IncludeDirective::Ptr> IncludeDirectives;
   IncludeDirectives includeDirectives_;
 
-  /** set of header files marked as used */
-  typedef llvm::DenseSet<clang::FileID> UsedHeaders;
+  /** set of header files used by this source file */
   UsedHeaders usedHeaders_;
 
-  SourceFile (clang::FileID fileID):
-    fileID_(fileID)
+  SourceFile (const std::string& name):
+    name_(name)
   { }
 
-  void traverse(SourceVisitor& visitor);
+  const std::string& name () const
+  { return name_; }
+
+  void traverse(SourceVisitor& visitor, bool shouldVisitThis);
 
   /**
-   * Checks if any of the header files included by this source file are used.
+   * Checks if any of the headers included by this source file are used.
    */
-  bool haveNestedUsedHeader(SourceFile::Ptr pParentSource);
+  bool haveNestedUsedHeader(const UsedHeaders& usedHeaders);
 
   /**
-   * Reports the header files included by this source file that are used.
+   * Reports the headers included by this source file that are used.
    */
   void reportNestedUsedHeaders(
-      SourceFile::Ptr pParentSource, clang::SourceManager& sourceManager);
+      const UsedHeaders& usedHeaders, clang::SourceManager& sourceManager);
 
   std::string format(
       clang::SourceLocation sourceLocation,
@@ -104,8 +107,11 @@ public:
    *
    * @return true if an unnecessary #include directive was found
    */
-  bool reportUnnecessaryIncludes(clang::SourceManager& sourceManager);
+  bool reportUnnecessaryIncludes(
+      const UsedHeaders& allUsedHeaders, clang::SourceManager& sourceManager);
 };
+
+class UnnecessaryIncludeFinderAction;
 
 /**
  * Finds unnecessary #include directives in translation units.
@@ -120,6 +126,7 @@ class UnnecessaryIncludeFinder:
     public clang::ASTConsumer,
     public clang::RecursiveASTVisitor<UnnecessaryIncludeFinder>
 {
+  UnnecessaryIncludeFinderAction& action_;
   clang::SourceManager& sourceManager_;
 
   // map file to last #include directive that includes it 
@@ -132,22 +139,19 @@ class UnnecessaryIncludeFinder:
       FileToSourceMap;
   FileToSourceMap fileToSourceMap_;
 
-  // stack of included files
-  std::stack<SourceFile::Ptr> includeStack_;
+  // stack of included source files.  The first element pushed will be the main
+  // source file.
+  std::vector<SourceFile::Ptr> includeStack_;
 
-  // main source file
+  // current main source file being analyzed
   SourceFile::Ptr pMainSource_;
-
-  bool& foundUnnecessary_;
 
   bool isFromMainFile (clang::SourceLocation sourceLocation)
   { return sourceManager_.isFromMainFile(sourceLocation); }
 
-  SourceFile::Ptr getSource(
-      const clang::FileEntry* pFile, clang::FileID fileID);
+  SourceFile::Ptr getSource(const clang::FileEntry* pFile);
 
-  SourceFile::Ptr enterHeader(
-      const clang::FileEntry* pFile, clang::FileID fileID);
+  SourceFile::Ptr enterHeader(const clang::FileEntry* pFile);
 
   void markUsed(
       clang::SourceLocation declarationLocation,
@@ -155,9 +159,10 @@ class UnnecessaryIncludeFinder:
 
 public:
   UnnecessaryIncludeFinder (
-      clang::SourceManager& sourceManager, bool& foundUnnecessary):
-    sourceManager_(sourceManager),
-    foundUnnecessary_(foundUnnecessary)
+      UnnecessaryIncludeFinderAction& action,
+      clang::SourceManager& sourceManager):
+    action_(action),
+    sourceManager_(sourceManager)
   { }
 
   /**
@@ -209,6 +214,29 @@ public:
 
   // Called when a member function is called.
   bool VisitCXXMemberCallExpr(clang::CXXMemberCallExpr* pExpr);
+};
+
+class UnnecessaryIncludeFinderAction: public clang::ASTFrontendAction
+{
+  friend class UnnecessaryIncludeFinder;
+
+  // all main source files that have been analyzed
+  typedef std::vector<SourceFile::Ptr> SourceFiles;
+  SourceFiles mainSources_;
+
+  // union of header files used by all main source files
+  UsedHeaders allUsedHeaders_;
+
+public:
+  virtual clang::ASTConsumer* CreateASTConsumer(
+      clang::CompilerInstance& compiler, llvm::StringRef inputFile);
+
+  /**
+   * Reports unnecessary #include directives.
+   *
+   * @return true if any unnecessary #include directives were found
+   */
+  bool reportUnnecessaryIncludes(clang::SourceManager& sourceManager);
 };
 
 #endif

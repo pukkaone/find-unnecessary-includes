@@ -1,7 +1,8 @@
 // $Id$
 #include "UnnecessaryIncludeFinder.h"
-#include "clang/AST/Decl.h"
 #include "clang/Basic/FileManager.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Lex/Preprocessor.h"
 #include "llvm/Support/raw_ostream.h"
 #include <iostream>
 #include <utility>
@@ -10,9 +11,9 @@ using namespace clang;
 using namespace llvm;
 
 void
-SourceFile::traverse (SourceVisitor& visitor)
+SourceFile::traverse (SourceVisitor& visitor, bool shouldVisitThis)
 {
-  if (!visitor.visit(this)) {
+  if (shouldVisitThis && !visitor.visit(this)) {
     return;
   }
 
@@ -21,32 +22,37 @@ SourceFile::traverse (SourceVisitor& visitor)
       ++ppInclude)
   {
     IncludeDirective::Ptr pIncludeDirective(*ppInclude);
-    pIncludeDirective->pHeader_->traverse(visitor);
+    pIncludeDirective->pHeader_->traverse(visitor, true);
   }
 }
 
-class UsedSourceFinder: public SourceVisitor
+typedef UsedHeaders VisitedHeaders;
+
+/**
+ * Checks if any of the headers included by this source file are used.
+ */
+class UsedHeaderFinder: public SourceVisitor
 {
-  const SourceFile::UsedHeaders& usedHeaders_;
-  SourceFile::UsedHeaders visitedHeaders_;
+  const UsedHeaders& usedHeaders_;
+  VisitedHeaders visitedHeaders_;
 
 public:
   bool found_;
 
-  UsedSourceFinder (const SourceFile::UsedHeaders& usedHeaders):
+  UsedHeaderFinder (const UsedHeaders& usedHeaders):
     usedHeaders_(usedHeaders),
     found_(false)
   { }
 
   virtual bool visit (SourceFile* pSource)
   {
-    FileID fileID = pSource->fileID_;
-    if (visitedHeaders_.count(fileID)) {
+    VisitedHeaders::key_type fileName(pSource->name());
+    if (visitedHeaders_.count(fileName)) {
       return false;
     }
-    visitedHeaders_.insert(fileID);
+    visitedHeaders_.insert(fileName);
 
-    if (usedHeaders_.count(fileID)) {
+    if (usedHeaders_.count(fileName)) {
       found_ = true;
       return false;
     }
@@ -55,37 +61,39 @@ public:
 };
 
 bool
-SourceFile::haveNestedUsedHeader (SourceFile::Ptr pParentSource)
+SourceFile::haveNestedUsedHeader (const UsedHeaders& usedHeaders)
 {
-  UsedSourceFinder finder(pParentSource->usedHeaders_);
-  traverse(finder);
+  UsedHeaderFinder finder(usedHeaders);
+  traverse(finder, false);
   return finder.found_;
 }
 
-class UsedSourceReporter: public SourceVisitor
+/**
+ * Reports the headers included by the source file that are used.
+ */
+class UsedHeaderReporter: public SourceVisitor
 {
-  const SourceFile::UsedHeaders& usedHeaders_;
+  const UsedHeaders& usedHeaders_;
   SourceManager& sourceManager_;
-  SourceFile::UsedHeaders visitedHeaders_;
+  VisitedHeaders visitedHeaders_;
 
 public:
-  UsedSourceReporter (
-      const SourceFile::UsedHeaders& usedHeaders, SourceManager& sourceManager):
+  UsedHeaderReporter (
+      const UsedHeaders& usedHeaders, SourceManager& sourceManager):
     usedHeaders_(usedHeaders),
     sourceManager_(sourceManager)
   { }
 
   virtual bool visit (SourceFile* pSource)
   {
-    FileID fileID = pSource->fileID_;
-    if (visitedHeaders_.count(fileID)) {
+    VisitedHeaders::key_type fileName(pSource->name());
+    if (visitedHeaders_.count(fileName)) {
       return false;
     }
-    visitedHeaders_.insert(fileID);
+    visitedHeaders_.insert(fileName);
 
-    if (usedHeaders_.count(fileID)) {
-      const FileEntry* pFile = sourceManager_.getFileEntryForID(fileID);
-      std::cout << std::endl << pFile->getName();
+    if (usedHeaders_.count(fileName)) {
+      std::cout << std::endl << fileName;
     }
     return true;
   }
@@ -93,10 +101,10 @@ public:
 
 void
 SourceFile::reportNestedUsedHeaders (
-    SourceFile::Ptr pParentSource, SourceManager& sourceManager)
+    const UsedHeaders& usedHeaders, SourceManager& sourceManager)
 {
-  UsedSourceReporter reporter(pParentSource->usedHeaders_, sourceManager);
-  traverse(reporter);
+  UsedHeaderReporter reporter(usedHeaders, sourceManager);
+  traverse(reporter, false);
 }
 
 std::string
@@ -110,7 +118,8 @@ SourceFile::format (SourceLocation sourceLocation, SourceManager& sourceManager)
 }
 
 bool
-SourceFile::reportUnnecessaryIncludes (SourceManager& sourceManager)
+SourceFile::reportUnnecessaryIncludes (
+    const UsedHeaders& allUsedHeaders, SourceManager& sourceManager)
 {
   bool foundUnnecessary = false;
 
@@ -120,10 +129,10 @@ SourceFile::reportUnnecessaryIncludes (SourceManager& sourceManager)
   {
     IncludeDirective::Ptr pIncludeDirective(*ppInclude);
 
-    SourceFile* pHeader = pIncludeDirective->pHeader_;
-    if (usedHeaders_.count(pHeader->fileID_) == false) {
+    SourceFile::Ptr pHeader = pIncludeDirective->pHeader_;
+    if (!usedHeaders_.count(pHeader->name())) {
       SourceFile::Ptr pSource(this);
-      bool haveNestedUsedHeader = pHeader->haveNestedUsedHeader(pSource);
+      bool haveNestedUsedHeader = pHeader->haveNestedUsedHeader(allUsedHeaders);
       if (haveNestedUsedHeader && pIncludeDirective->angled_) {
         // This header is unused but one of headers it includes is used.
         // Don't complain if the #include directive surrounded the file name
@@ -135,13 +144,13 @@ SourceFile::reportUnnecessaryIncludes (SourceManager& sourceManager)
       std::cout << format(pIncludeDirective->directiveLocation_, sourceManager)
           << ": warning: #include "
           << (pIncludeDirective->angled_ ? '<' : '"')
-          << pIncludeDirective->fileName_.str()
+          << pIncludeDirective->fileName_
           << (pIncludeDirective->angled_ ? '>' : '"')
           << ' ';
       if (haveNestedUsedHeader) {
         std::cout << "is optional "
             "but it includes these used headers:";
-        pHeader->reportNestedUsedHeaders(pSource, sourceManager);
+        pHeader->reportNestedUsedHeaders(allUsedHeaders, sourceManager);
       } else {
         std::cout << "is unnecessary";
       }
@@ -223,7 +232,12 @@ UnnecessaryIncludeFinder::markUsed (
 
   FileID declarationFileID = sourceManager_.getFileID(declarationLocation);
   if (declarationFileID != sourceManager_.getMainFileID()) {
-    pMainSource_->usedHeaders_.insert(declarationFileID);
+    const FileEntry* pFile = sourceManager_.getFileEntryForID(
+        declarationFileID);
+    UsedHeaders::key_type fileName(pFile->getName());
+
+    pMainSource_->usedHeaders_.insert(fileName);
+    action_.allUsedHeaders_.insert(fileName);
   }
 }
 
@@ -246,22 +260,24 @@ UnnecessaryIncludeFinder::InclusionDirective (
 }
 
 SourceFile::Ptr
-UnnecessaryIncludeFinder::getSource (const FileEntry* pFile, FileID fileID)
+UnnecessaryIncludeFinder::getSource (const FileEntry* pFile)
 {
   FileToSourceMap::iterator pPair = fileToSourceMap_.find(pFile);
   if (pPair != fileToSourceMap_.end()) {
     return pPair->second;
   }
 
-  SourceFile::Ptr pSource(new SourceFile(fileID));
+  SourceFile::Ptr pSource(
+      (pFile == 0)
+      ? new SourceFile("") : new SourceFile(pFile->getName()));
   fileToSourceMap_.insert(std::make_pair(pFile, pSource));
   return pSource;
 }
 
 SourceFile::Ptr
-UnnecessaryIncludeFinder::enterHeader (const FileEntry* pFile, FileID fileID)
+UnnecessaryIncludeFinder::enterHeader (const FileEntry* pFile)
 {
-  SourceFile::Ptr pHeader = getSource(pFile, fileID);
+  SourceFile::Ptr pHeader = getSource(pFile);
 
   // Find the #include directive that included this header.
   FileToIncludeDirectiveMap::iterator pPair =
@@ -270,10 +286,10 @@ UnnecessaryIncludeFinder::enterHeader (const FileEntry* pFile, FileID fileID)
 
   // The #include directive did not have the header during construction.
   // Set it now.
-  pIncludeDirective->pHeader_ = pHeader.getPtr();
+  pIncludeDirective->pHeader_ = pHeader;
 
   // Remember the parent file included this file.
-  SourceFile::Ptr pParentSource = includeStack_.top();
+  SourceFile::Ptr pParentSource(includeStack_.back());
   pParentSource->includeDirectives_.push_back(pIncludeDirective);
 
   return pHeader;
@@ -291,22 +307,25 @@ UnnecessaryIncludeFinder::FileChanged (
     if (pFile != 0) {
       if (newFileID == sourceManager_.getMainFileID()) {
         // Entering main source file for the first time.
-        pMainSource_ = getSource(pFile, newFileID);
-        includeStack_.push(pMainSource_);
+        pMainSource_ = getSource(pFile);
+        action_.mainSources_.push_back(pMainSource_);
+        includeStack_.clear();
+        includeStack_.push_back(pMainSource_);
       } else {
         // Push new header onto include stack.
-        SourceFile::Ptr pHeader(enterHeader(pFile, newFileID));
-        includeStack_.push(pHeader);
+        SourceFile::Ptr pHeader(enterHeader(pFile));
+        includeStack_.push_back(pHeader);
       }
     } else {
       // Entering built-in source.  There's no real file.  Push a dummy source
-      // file onto the include stack so there's something to pop when exiting.
-      SourceFile::Ptr pHeader(getSource(0, newFileID));
-      includeStack_.push(pHeader);
+      // file onto the include stack so there's something to pop when exiting
+      // the file.
+      SourceFile::Ptr pHeader(getSource(0));
+      includeStack_.push_back(pHeader);
     }
   } else if (reason == PPCallbacks::ExitFile) {
     // Pop include stack.
-    includeStack_.pop();
+    includeStack_.pop_back();
   }
 }
 
@@ -316,8 +335,7 @@ UnnecessaryIncludeFinder::FileSkipped (
       const Token& fileNameToken,
       SrcMgr::CharacteristicKind fileType)
 {
-  FileID dummyFileID;
-  enterHeader(&file, dummyFileID);
+  enterHeader(&file);
 }
 
 void
@@ -334,8 +352,6 @@ void
 UnnecessaryIncludeFinder::HandleTranslationUnit (ASTContext& astContext)
 {
   TraverseDecl(astContext.getTranslationUnitDecl());
-
-  foundUnnecessary_ = pMainSource_->reportUnnecessaryIncludes(sourceManager_);
 }
 
 bool
@@ -373,17 +389,48 @@ UnnecessaryIncludeFinder::VisitDeclRefExpr (DeclRefExpr* pExpr)
 bool
 UnnecessaryIncludeFinder::VisitMemberExpr (MemberExpr* pExpr)
 {
-  markUsed(
-      pExpr->getMemberDecl()->getLocation(),
-      pExpr->getMemberLoc());
+  markUsed(pExpr->getMemberDecl()->getLocation(), pExpr->getMemberLoc());
   return true;
 }
 
 bool
 UnnecessaryIncludeFinder::VisitCXXMemberCallExpr (CXXMemberCallExpr* pExpr)
 {
-  markUsed(
-      pExpr->getMethodDecl()->getLocation(),
-      pExpr->getExprLoc());
+  markUsed(pExpr->getMethodDecl()->getLocation(), pExpr->getExprLoc());
   return true;
+}
+
+ASTConsumer*
+UnnecessaryIncludeFinderAction::CreateASTConsumer (
+    CompilerInstance& compiler, StringRef inputFile)
+{
+  UnnecessaryIncludeFinder* pFinder = new UnnecessaryIncludeFinder(
+      *this, compiler.getSourceManager());
+
+  compiler.getPreprocessor().addPPCallbacks(
+      pFinder->createPreprocessorCallbacks());
+
+  return pFinder;
+}
+
+bool
+UnnecessaryIncludeFinderAction::reportUnnecessaryIncludes (
+    SourceManager& sourceManager)
+{
+  bool foundUnnecessary = false;
+
+  for (SourceFiles::iterator ppSource = mainSources_.begin();
+      ppSource != mainSources_.end();
+      ++ppSource)
+  {
+    SourceFile::Ptr pMainSource(*ppSource);
+
+    bool found = pMainSource->reportUnnecessaryIncludes(
+        allUsedHeaders_, sourceManager);
+    if (found) {
+      foundUnnecessary = true;
+    }
+  }
+
+  return foundUnnecessary;
 }

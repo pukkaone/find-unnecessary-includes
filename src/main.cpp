@@ -1,7 +1,6 @@
 // $Id$
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CompilerInstance.h"
-#include "clang/Lex/Preprocessor.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "UnnecessaryIncludeFinder.h"
 #include "version.h"
@@ -73,26 +72,6 @@ handleFrontEndOptions (FrontendOptions& opt)
   return true;
 }
 
-class UnnecessaryIncludeFinderAction: public ASTFrontendAction
-{
-public:
-  bool foundUnnecessary_;
-
-  UnnecessaryIncludeFinderAction ():
-      foundUnnecessary_(false)
-  { }
-
-  virtual ASTConsumer* CreateASTConsumer (
-      CompilerInstance& compiler, StringRef inputFile)
-  {
-    UnnecessaryIncludeFinder* pFinder = new UnnecessaryIncludeFinder(
-        compiler.getSourceManager(), foundUnnecessary_);
-    compiler.getPreprocessor().addPPCallbacks(
-        pFinder->createPreprocessorCallbacks());
-    return pFinder;
-  }
-};
-
 }//namespace
 
 int
@@ -141,7 +120,9 @@ main (int argc, char* argv[])
 
   UnnecessaryIncludeFinderAction action;
   compiler.ExecuteAction(action);
+  bool foundUnnecessary = action.reportUnnecessaryIncludes(
+      compiler.getSourceManager());
 
   llvm_shutdown();
-  return action.foundUnnecessary_ ? EXIT_FAILURE : exitStatus;
+  return foundUnnecessary ? EXIT_FAILURE : exitStatus;
 }
