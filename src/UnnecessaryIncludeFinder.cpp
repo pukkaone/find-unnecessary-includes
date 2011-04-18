@@ -231,11 +231,18 @@ UnnecessaryIncludeFinder::markUsed (
   }
 
   FileID declarationFileID = sourceManager_.getFileID(declarationLocation);
+  if (sourceManager_.getSLocEntry(declarationFileID).isFile() == false) {
+    return;
+  }
+
   if (declarationFileID != sourceManager_.getMainFileID()) {
     const FileEntry* pFile = sourceManager_.getFileEntryForID(
         declarationFileID);
-    UsedHeaders::key_type fileName(pFile->getName());
+    if (pFile == 0) {
+      return;
+    }
 
+    UsedHeaders::key_type fileName(pFile->getName());
     pMainSource_->usedHeaders_.insert(fileName);
     action_.allUsedHeaders_.insert(fileName);
   }
@@ -396,7 +403,9 @@ UnnecessaryIncludeFinder::VisitMemberExpr (MemberExpr* pExpr)
 bool
 UnnecessaryIncludeFinder::VisitCXXMemberCallExpr (CXXMemberCallExpr* pExpr)
 {
-  markUsed(pExpr->getMethodDecl()->getLocation(), pExpr->getExprLoc());
+  if (pExpr->getMethodDecl() != 0) {
+    markUsed(pExpr->getMethodDecl()->getLocation(), pExpr->getExprLoc());
+  }
   return true;
 }
 
