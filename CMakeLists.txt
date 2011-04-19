@@ -11,11 +11,6 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-if(CMAKE_GENERATOR MATCHES "Visual Studio.*")
-  # Disable compiler warnings.
-  add_definitions("-D_SCL_SECURE_NO_WARNINGS /wd4146 /wd4244 /wd4275 /wd4345 /wd4355 /wd4800")
-endif()
-
 # For make-based builds, defines target "test".
 enable_testing()
 
