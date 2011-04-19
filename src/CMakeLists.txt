@@ -1,13 +1,6 @@
 # $Id$
 
-set(LLVM_CONFIG_EXE
-    ${CLANG_PATH_TO_LLVM_BUILD}/bin/${CMAKE_CFG_INTDIR}/llvm-config)
-
-execute_process(
-    COMMAND ${LLVM_CONFIG_EXE} --cxxflags
-    OUTPUT_VARIABLE LLVM_CONFIG_CXXFLAGS)
-
-add_definitions(${LLVM_CONFIG_CXXFLAGS})
+include(HandleLLVMOptions)
 
 include_directories(
     ${CMAKE_BINARY_DIR}/llvm/include
