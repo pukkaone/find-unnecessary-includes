@@ -27,7 +27,7 @@ public:
   typedef llvm::IntrusiveRefCntPtr<IncludeDirective> Ptr;
 
   /** location of #include directive in source code */
-  clang::SourceLocation directiveLocation_;
+  std::string directiveLocation_;
 
   /**
    * header file name as it appears in the source without surrounding delimiters
@@ -41,7 +41,7 @@ public:
   llvm::IntrusiveRefCntPtr<SourceFile> pHeader_;
 
   IncludeDirective(
-      clang::SourceLocation hashLoc,
+      const std::string& hashLoc,
       llvm::StringRef fileName,
       bool angled):
     directiveLocation_(hashLoc),
@@ -97,10 +97,6 @@ public:
    */
   void reportNestedUsedHeaders(
       const UsedHeaders& usedHeaders, clang::SourceManager& sourceManager);
-
-  std::string format(
-      clang::SourceLocation sourceLocation,
-      clang::SourceManager& sourceManager);
 
   /**
    * Reports unnecessary #include directives in this source file.

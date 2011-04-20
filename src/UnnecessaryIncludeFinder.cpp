@@ -93,7 +93,7 @@ public:
     visitedHeaders_.insert(fileName);
 
     if (usedHeaders_.count(fileName)) {
-      std::cout << std::endl << fileName;
+      std::cout << std::endl << "  " << fileName;
     }
     return true;
   }
@@ -105,16 +105,6 @@ SourceFile::reportNestedUsedHeaders (
 {
   UsedHeaderReporter reporter(usedHeaders, sourceManager);
   traverse(reporter, false);
-}
-
-std::string
-SourceFile::format (SourceLocation sourceLocation, SourceManager& sourceManager)
-{
-  std::string result;
-  raw_string_ostream rso(result);
-  sourceLocation.print(rso, sourceManager);
-  rso.flush();
-  return result;
 }
 
 bool
@@ -141,7 +131,7 @@ SourceFile::reportUnnecessaryIncludes (
       }
 
       foundUnnecessary = true;
-      std::cout << format(pIncludeDirective->directiveLocation_, sourceManager)
+      std::cout << pIncludeDirective->directiveLocation_
           << ": warning: #include "
           << (pIncludeDirective->angled_ ? '<' : '"')
           << pIncludeDirective->fileName_
@@ -258,9 +248,14 @@ UnnecessaryIncludeFinder::InclusionDirective (
     SourceLocation endLoc,
     const SmallVectorImpl<char>& rawPath)
 {
+  std::string directiveLocation;
+  raw_string_ostream rso(directiveLocation);
+  hashLoc.print(rso, sourceManager_);
+  rso.flush();
+
   // Remember #include directive that included the file.
   IncludeDirective::Ptr pIncludeDirective(
-      new IncludeDirective(hashLoc, fileName, isAngled));
+      new IncludeDirective(directiveLocation, fileName, isAngled));
 
   fileToIncludeDirectiveMap_.erase(pFile);
   fileToIncludeDirectiveMap_.insert(std::make_pair(pFile, pIncludeDirective));
