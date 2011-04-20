@@ -12,6 +12,7 @@
 #include "clang/Lex/Token.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include <ostream>
 #include <set>
 #include <string>
 #include <vector>
@@ -23,19 +24,17 @@ class SourceFile;
  */
 class IncludeDirective: public llvm::RefCountedBase<IncludeDirective>
 {
-public:
-  typedef llvm::IntrusiveRefCntPtr<IncludeDirective> Ptr;
-
-  /** location of #include directive in source code */
+  // location of #include directive in source code
   std::string directiveLocation_;
 
-  /**
-   * header file name as it appears in the source without surrounding delimiters
-   */
+  // header file name as it appears in the source without surrounding delimiters
   std::string fileName_;
 
-  /** true if angle brackets surrounded the file name in the source */
+  // true if #include directive specified file name between angle brackets
   bool angled_;
+
+public:
+  typedef llvm::IntrusiveRefCntPtr<IncludeDirective> Ptr;
 
   /** header file included by #include directive */
   llvm::IntrusiveRefCntPtr<SourceFile> pHeader_;
@@ -48,15 +47,28 @@ public:
     fileName_(fileName.str()),
     angled_(angled)
   { }
+
+  bool angled () const
+  { return angled_; }
+
+  /**
+   * Outputs file name with quotes as it appears in the source code.
+   */
+  void printFileName(std::ostream& out);
+
+  /**
+   * Outputs beginning of warning message.
+   */
+  void printWarningPrefix(std::ostream& out);
 };
 
-class SourceVisitor
+class IncludeDirectiveVisitor
 {
 public:
   /**
    * Return true if traversal should continue.
    */
-  virtual bool visit(SourceFile* pSource) = 0;
+  virtual bool visit(IncludeDirective::Ptr pIncludeDirective) = 0;
 };
 
 typedef std::set<std::string> UsedHeaders;
@@ -85,7 +97,7 @@ public:
   const std::string& name () const
   { return name_; }
 
-  void traverse(SourceVisitor& visitor, bool shouldVisitThis);
+  void traverse(IncludeDirectiveVisitor& visitor);
 
   /**
    * Checks if any of the headers included by this source file are used.

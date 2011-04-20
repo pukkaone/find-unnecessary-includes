@@ -11,18 +11,34 @@ using namespace clang;
 using namespace llvm;
 
 void
-SourceFile::traverse (SourceVisitor& visitor, bool shouldVisitThis)
+IncludeDirective::printFileName (std::ostream& out)
 {
-  if (shouldVisitThis && !visitor.visit(this)) {
-    return;
-  }
+  out << (angled_ ? '<' : '"')
+      << fileName_
+      << (angled_ ? '>' : '"');
+}
+  
+void
+IncludeDirective::printWarningPrefix (std::ostream& out)
+{
+  out << directiveLocation_ << ": warning: #include ";
+  printFileName(out);
+  out << ' ';
+}
 
+void
+SourceFile::traverse (IncludeDirectiveVisitor& visitor)
+{
   for (IncludeDirectives::iterator ppInclude = includeDirectives_.begin();
       ppInclude != includeDirectives_.end();
       ++ppInclude)
   {
     IncludeDirective::Ptr pIncludeDirective(*ppInclude);
-    pIncludeDirective->pHeader_->traverse(visitor, true);
+    if (!visitor.visit(pIncludeDirective)) {
+      break;
+    }
+
+    pIncludeDirective->pHeader_->traverse(visitor);
   }
 }
 
@@ -31,7 +47,7 @@ typedef UsedHeaders VisitedHeaders;
 /**
  * Checks if any of the headers included by this source file are used.
  */
-class UsedHeaderFinder: public SourceVisitor
+class UsedHeaderFinder: public IncludeDirectiveVisitor
 {
   const UsedHeaders& usedHeaders_;
   VisitedHeaders visitedHeaders_;
@@ -44,9 +60,9 @@ public:
     found_(false)
   { }
 
-  virtual bool visit (SourceFile* pSource)
+  virtual bool visit (IncludeDirective::Ptr pIncludeDirective)
   {
-    VisitedHeaders::key_type fileName(pSource->name());
+    VisitedHeaders::key_type fileName(pIncludeDirective->pHeader_->name());
     if (visitedHeaders_.count(fileName)) {
       return false;
     }
@@ -64,14 +80,14 @@ bool
 SourceFile::haveNestedUsedHeader (const UsedHeaders& usedHeaders)
 {
   UsedHeaderFinder finder(usedHeaders);
-  traverse(finder, false);
+  traverse(finder);
   return finder.found_;
 }
 
 /**
  * Reports the headers included by the source file that are used.
  */
-class UsedHeaderReporter: public SourceVisitor
+class UsedHeaderReporter: public IncludeDirectiveVisitor
 {
   const UsedHeaders& usedHeaders_;
   SourceManager& sourceManager_;
@@ -84,16 +100,17 @@ public:
     sourceManager_(sourceManager)
   { }
 
-  virtual bool visit (SourceFile* pSource)
+  virtual bool visit (IncludeDirective::Ptr pIncludeDirective)
   {
-    VisitedHeaders::key_type fileName(pSource->name());
+    VisitedHeaders::key_type fileName(pIncludeDirective->pHeader_->name());
     if (visitedHeaders_.count(fileName)) {
       return false;
     }
     visitedHeaders_.insert(fileName);
 
     if (usedHeaders_.count(fileName)) {
-      std::cout << std::endl << "  " << fileName;
+      std::cout << std::endl << "  ";
+      pIncludeDirective->printFileName(std::cout);
     }
     return true;
   }
@@ -104,7 +121,7 @@ SourceFile::reportNestedUsedHeaders (
     const UsedHeaders& usedHeaders, SourceManager& sourceManager)
 {
   UsedHeaderReporter reporter(usedHeaders, sourceManager);
-  traverse(reporter, false);
+  traverse(reporter);
 }
 
 bool
@@ -123,7 +140,7 @@ SourceFile::reportUnnecessaryIncludes (
     if (!usedHeaders_.count(pHeader->name())) {
       SourceFile::Ptr pSource(this);
       bool haveNestedUsedHeader = pHeader->haveNestedUsedHeader(allUsedHeaders);
-      if (haveNestedUsedHeader && pIncludeDirective->angled_) {
+      if (haveNestedUsedHeader && pIncludeDirective->angled()) {
         // This header is unused but one of headers it includes is used.
         // Don't complain if the #include directive surrounded the file name
         // with angle brackets.
@@ -131,12 +148,7 @@ SourceFile::reportUnnecessaryIncludes (
       }
 
       foundUnnecessary = true;
-      std::cout << pIncludeDirective->directiveLocation_
-          << ": warning: #include "
-          << (pIncludeDirective->angled_ ? '<' : '"')
-          << pIncludeDirective->fileName_
-          << (pIncludeDirective->angled_ ? '>' : '"')
-          << ' ';
+      pIncludeDirective->printWarningPrefix(std::cout);
       if (haveNestedUsedHeader) {
         std::cout << "is optional "
             "but it includes these used headers:";
