@@ -12,18 +12,18 @@ Definition: An `#include` directive is *unnecessary* if the translation unit
 compiles without errors after you remove it.
 
 
-### Optional #include directives
+### Replaceable #include directives
 
-Definition: An `#include` directive is *optional* if removing it causes a
-compile error but the compile error can be corrected by adding other `#include`
-directives.
+Definition: An `#include` directive is *replaceable* if it can be replaced with
+one or more `#include` directives for different headers without causing a
+compile error.
 
 For example, suppose the header file `Base.h` defines a base class.  The header
 file `Derived.h` defines a class deriving from the base class, so it includes
 `Base.h`.  The main source file includes `Derived.h` but does not use any
 symbols defined in `Derived.h` and uses only symbols defined in `Base.h`.  The
-tool will say `Derive.h` is optional, and suggest the main source file directly
-include `Base.h` instead.
+tool will say `Derive.h` is replaceable, and suggest the main source file
+directly include `Base.h` instead.
 
 
 ## Build Instructions

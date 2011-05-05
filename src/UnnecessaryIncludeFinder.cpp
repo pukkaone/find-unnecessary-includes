@@ -150,8 +150,7 @@ SourceFile::reportUnnecessaryIncludes (
       foundUnnecessary = true;
       pIncludeDirective->printWarningPrefix(std::cout);
       if (haveNestedUsedHeader) {
-        std::cout << "is optional "
-            "but it includes these used headers:";
+        std::cout << "is replaceable. It includes these used headers:";
         pHeader->reportNestedUsedHeaders(allUsedHeaders, sourceManager);
       } else {
         std::cout << "is unnecessary";
