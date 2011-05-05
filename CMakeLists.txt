@@ -47,18 +47,25 @@ if(GIT_FOUND)
   execute_process(
       COMMAND ${GIT_EXECUTABLE} describe --abbrev=0
       OUTPUT_VARIABLE FUI_VERSION
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      RESULT_VARIABLE GIT_RESULT)
+  if(NOT GIT_RESULT EQUAL 0)
+    set(FUI_VERSION "UNKNOWN")
+  endif()
 
-  # Get the build number by counting commits from the first commit in the
-  # repository which is tagged "build".
+  # Get the build number by counting commits from the tag named "build".
   execute_process(
       COMMAND ${GIT_EXECUTABLE} describe --match build
       OUTPUT_VARIABLE DESCRIBE_BUILD
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
-  string(REGEX MATCH "[0-9]+" BUILD_NUMBER ${DESCRIBE_BUILD})
+      RESULT_VARIABLE GIT_RESULT)
+  if(GIT_RESULT EQUAL 0)
+    string(REGEX MATCH "[0-9]+" BUILD_NUMBER ${DESCRIBE_BUILD})
+  else()
+    set(BUILD_NUMBER "UNKNOWN")
+  endif()
 else()
-  set(FUI_VERSION "0.0")
-  set(BUILD_NUMBER 0)
+  set(FUI_VERSION "UNKNOWN")
+  set(BUILD_NUMBER "UNKNOWN")
 endif()
 
 # Write version and build number into version.h file.

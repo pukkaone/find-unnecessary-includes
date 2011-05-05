@@ -43,8 +43,8 @@ showHelp ()
       "  --version               show version\n"
       "  -D<macro>[=def]         define preprocessor macro\n"
       "  -I<dir>                 add include directory\n"
+      "  -include <file>         include file before main source\n"
       "  -c                      exit with status 1\n"
-      "  -fms-extensions         enable Microsoft extensions\n"
       "\n"
       "Many clang options are also supported.  "
       "See the clang manual for more options.\n";

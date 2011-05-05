@@ -1,9 +1,5 @@
 # $Id$
 
-get_target_property(
-    FIND_UNNECESSARY_INCLUDES_EXE find-unnecessary-includes LOCATION)
-set(TEST_COMMAND ${FIND_UNNECESSARY_INCLUDES_EXE})
-
 macro(add_compare_test inputFile)
   add_test(
       NAME ${inputFile}
