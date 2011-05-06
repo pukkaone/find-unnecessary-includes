@@ -58,13 +58,13 @@ To run the tests:
     make test
 
 
-### Build using Visual C++ 2008
+### Build using Visual C++ 2010
 
 Run the commands:
 
     mkdir build
     cd build
-    cmake -G "Visual Studio 9 2008" ..
+    cmake -G "Visual Studio 10" ..
 
 In Visual C++, open the `find-unnecessary-includes.sln` solution.  Build the
 `find-unnecessary-includes` project.

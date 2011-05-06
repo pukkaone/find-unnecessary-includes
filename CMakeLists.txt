@@ -11,10 +11,11 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# For make-based builds, defines target "test".
+# For make-based builds, defines make target named test.
+# For Visual Studio builds, defines Visual Studio project named RUN_TESTS.
 enable_testing()
 
-# Visual C++ 2008 Express Edition does not support solution folders.
+# Visual C++ Express Editions do not support solution folders.
 set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
 
 # Patch LLVM CMake script to set USE_FOLDERS property to OFF.
