@@ -28,6 +28,11 @@ if(USE_INSTALLED_CLANG)
     endmacro(add_clang_executable)
     set(CLANG_INCLUDE_DIRS)
     link_directories(${LLVM_LIBRARY_DIRS})
+    # Assume we're using newer than r130246 by default
+    option(CLANG_NEWER_THAN_R130246 "Is the version of Clang in use trunk r130246 or newer?" ON)
+    if(CLANG_NEWER_THAN_R130246)
+      add_definitions(-DCLANG_POST_R130246)
+    endif()
 else()
     # Patch LLVM CMake script to set USE_FOLDERS property to OFF.
     configure_file(

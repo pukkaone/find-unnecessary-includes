@@ -174,6 +174,21 @@ public:
     delegate_(delegate)
   { }
 
+#ifdef CLANG_POST_R130246
+  virtual void InclusionDirective(
+      clang::SourceLocation hashLoc,
+      const clang::Token& includeToken,
+      llvm::StringRef fileName,
+      bool isAngled,
+      const clang::FileEntry* pFile,
+      clang::SourceLocation endLoc,
+      llvm::StringRef SearchPath,
+      llvm::StringRef RelativePath)
+  {
+    delegate_.InclusionDirective(
+        hashLoc, includeToken, fileName, isAngled, pFile, endLoc, SearchPath, RelativePath);
+  }
+#else
   virtual void InclusionDirective (
       SourceLocation hashLoc,
       const clang::Token& includeToken,
@@ -186,7 +201,7 @@ public:
     delegate_.InclusionDirective(
         hashLoc, includeToken, fileName, isAngled, pFile, endLoc, rawPath);
   }
-
+#endif
   virtual void FileChanged (
       SourceLocation newLocation,
       PPCallbacks::FileChangeReason reason,
@@ -248,7 +263,17 @@ UnnecessaryIncludeFinder::markUsed (
     action_.allUsedHeaders_.insert(fileName);
   }
 }
-
+#ifdef CLANG_POST_R130246
+void UnnecessaryIncludeFinder::InclusionDirective(
+      clang::SourceLocation hashLoc,
+      const clang::Token& includeToken,
+      llvm::StringRef fileName,
+      bool isAngled,
+      const clang::FileEntry* pFile,
+      clang::SourceLocation endLoc,
+      llvm::StringRef SearchPath,
+      llvm::StringRef RelativePath)
+#else
 void
 UnnecessaryIncludeFinder::InclusionDirective (
     SourceLocation hashLoc,
@@ -258,6 +283,7 @@ UnnecessaryIncludeFinder::InclusionDirective (
     const FileEntry* pFile,
     SourceLocation endLoc,
     const SmallVectorImpl<char>& rawPath)
+#endif
 {
   std::string directiveLocation;
   raw_string_ostream rso(directiveLocation);
