@@ -180,6 +180,17 @@ public:
    */
   clang::PPCallbacks* createPreprocessorCallbacks();
 
+#ifdef CLANG_POST_R130246
+  virtual void InclusionDirective(
+      clang::SourceLocation hashLoc,
+      const clang::Token& includeToken,
+      llvm::StringRef fileName,
+      bool isAngled,
+      const clang::FileEntry* pFile,
+      clang::SourceLocation endLoc,
+      llvm::StringRef SearchPath,
+      llvm::StringRef RelativePath);
+#else
   virtual void InclusionDirective(
       clang::SourceLocation hashLoc,
       const clang::Token& includeToken,
@@ -188,6 +199,7 @@ public:
       const clang::FileEntry* pFile,
       clang::SourceLocation endLoc,
       const llvm::SmallVectorImpl<char>& rawPath);
+#endif
 
   virtual void FileChanged(
       clang::SourceLocation newLocation,
