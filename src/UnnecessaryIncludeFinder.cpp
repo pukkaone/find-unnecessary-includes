@@ -370,7 +370,7 @@ UnnecessaryIncludeFinder::HandleTranslationUnit (ASTContext& astContext)
 bool
 UnnecessaryIncludeFinder::VisitTypedefTypeLoc (TypedefTypeLoc typeLoc)
 {
-  markUsed(typeLoc.getTypedefDecl()->getLocation(), typeLoc.getBeginLoc());
+  markUsed(typeLoc.getTypePtr()->getDecl()->getLocation(), typeLoc.getBeginLoc());
   return true;
 }
 
