@@ -18,27 +18,45 @@ enable_testing()
 # Visual C++ Express Editions do not support solution folders.
 set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
 
-# Patch LLVM CMake script to set USE_FOLDERS property to OFF.
-configure_file(
-    patch/llvm/CMakeLists.txt
-    ${CMAKE_SOURCE_DIR}/llvm/CMakeLists.txt
-    COPYONLY)
-add_subdirectory(llvm)
+option(USE_INSTALLED_CLANG "Use an installed clang/llvm?" OFF)
+if(USE_INSTALLED_CLANG)
+    find_package(LLVM REQUIRED)
+    include(AddLLVM)
+    macro(add_clang_executable name)
+      add_llvm_executable( ${name} ${ARGN} )
+      set_target_properties(${name} PROPERTIES FOLDER "Clang executables")
+    endmacro(add_clang_executable)
+    set(CLANG_INCLUDE_DIRS)
+    link_directories(${LLVM_LIBRARY_DIRS})
+    # Assume we're using newer than r130246 by default
+    option(CLANG_NEWER_THAN_R130246 "Is the version of Clang in use trunk r130246 or newer?" ON)
+    if(CLANG_NEWER_THAN_R130246)
+      add_definitions(-DCLANG_POST_R130246)
+    endif()
+else()
+    # Patch LLVM CMake script to set USE_FOLDERS property to OFF.
+    configure_file(
+        patch/llvm/CMakeLists.txt
+        ${CMAKE_SOURCE_DIR}/llvm/CMakeLists.txt
+        COPYONLY)
+    add_subdirectory(llvm)
 
-set(CLANG_BUILD_STANDALONE 1
-    CACHE INTERNAL "Build clang as standalone.")
-set(CLANG_PATH_TO_LLVM_SOURCE "${CMAKE_SOURCE_DIR}/llvm"
-    CACHE INTERNAL "Path to LLVM source directory.")
-set(CLANG_PATH_TO_LLVM_BUILD "${CMAKE_BINARY_DIR}/llvm"
-    CACHE INTERNAL "Path to LLVM build directory.")
+    set(CLANG_BUILD_STANDALONE 1
+        CACHE INTERNAL "Build clang as standalone.")
+    set(CLANG_PATH_TO_LLVM_SOURCE "${CMAKE_SOURCE_DIR}/llvm"
+        CACHE INTERNAL "Path to LLVM source directory.")
+    set(CLANG_PATH_TO_LLVM_BUILD "${CMAKE_BINARY_DIR}/llvm"
+        CACHE INTERNAL "Path to LLVM build directory.")
 
-# Patch clang CMake script to build it standalone.
-configure_file(
-    patch/clang/CMakeLists.txt
-    ${CMAKE_SOURCE_DIR}/clang/CMakeLists.txt
-    COPYONLY)
-add_subdirectory(clang)
-
+    # Patch clang CMake script to build it standalone.
+    configure_file(
+        patch/clang/CMakeLists.txt
+        ${CMAKE_SOURCE_DIR}/clang/CMakeLists.txt
+        COPYONLY)
+    add_subdirectory(clang)
+    set(LLVM_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/llvm/include ${CMAKE_SOURCE_DIR}/llvm/include)
+    set(CLANG_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/clang/include ${CMAKE_SOURCE_DIR}/clang/include)
+endif()
 add_subdirectory(src)
 add_subdirectory(test)
 
