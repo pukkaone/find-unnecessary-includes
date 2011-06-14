@@ -2,7 +2,8 @@
 
 include(HandleLLVMOptions)
 
-include_directories(${LLVM_INCLUDE_DIRS}
+include_directories(
+    ${LLVM_INCLUDE_DIRS}
     ${CLANG_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/include
 )
@@ -15,11 +16,10 @@ set(LLVM_USED_LIBS
     clangAnalysis
     clangAST
     clangParse
-    clangSema
     clangLex
     clangBasic
-    LLVMSupport
     LLVMMC
+    LLVMSupport
 )
 
 add_clang_executable(find-unnecessary-includes

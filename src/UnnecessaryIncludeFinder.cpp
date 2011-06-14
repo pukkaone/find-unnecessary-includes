@@ -174,7 +174,6 @@ public:
     delegate_(delegate)
   { }
 
-#ifdef CLANG_POST_R130246
   virtual void InclusionDirective(
       clang::SourceLocation hashLoc,
       const clang::Token& includeToken,
@@ -182,26 +181,13 @@ public:
       bool isAngled,
       const clang::FileEntry* pFile,
       clang::SourceLocation endLoc,
-      llvm::StringRef SearchPath,
-      llvm::StringRef RelativePath)
+      llvm::StringRef searchPath,
+      llvm::StringRef relativePath)
   {
     delegate_.InclusionDirective(
-        hashLoc, includeToken, fileName, isAngled, pFile, endLoc, SearchPath, RelativePath);
+        hashLoc, includeToken, fileName, isAngled, pFile, endLoc, searchPath, relativePath);
   }
-#else
-  virtual void InclusionDirective (
-      SourceLocation hashLoc,
-      const clang::Token& includeToken,
-      StringRef fileName,
-      bool isAngled,
-      const FileEntry* pFile,
-      SourceLocation endLoc,
-      const SmallVectorImpl<char>& rawPath)
-  {
-    delegate_.InclusionDirective(
-        hashLoc, includeToken, fileName, isAngled, pFile, endLoc, rawPath);
-  }
-#endif
+
   virtual void FileChanged (
       SourceLocation newLocation,
       PPCallbacks::FileChangeReason reason,
@@ -263,27 +249,17 @@ UnnecessaryIncludeFinder::markUsed (
     action_.allUsedHeaders_.insert(fileName);
   }
 }
-#ifdef CLANG_POST_R130246
-void UnnecessaryIncludeFinder::InclusionDirective(
-      clang::SourceLocation hashLoc,
-      const clang::Token& includeToken,
-      llvm::StringRef fileName,
-      bool isAngled,
-      const clang::FileEntry* pFile,
-      clang::SourceLocation endLoc,
-      llvm::StringRef SearchPath,
-      llvm::StringRef RelativePath)
-#else
+
 void
-UnnecessaryIncludeFinder::InclusionDirective (
-    SourceLocation hashLoc,
-    const Token& includeToken,
-    StringRef fileName,
+UnnecessaryIncludeFinder::InclusionDirective(
+    clang::SourceLocation hashLoc,
+    const clang::Token& includeToken,
+    llvm::StringRef fileName,
     bool isAngled,
-    const FileEntry* pFile,
-    SourceLocation endLoc,
-    const SmallVectorImpl<char>& rawPath)
-#endif
+    const clang::FileEntry* pFile,
+    clang::SourceLocation endLoc,
+    llvm::StringRef searchPath,
+    llvm::StringRef relativePath)
 {
   std::string directiveLocation;
   raw_string_ostream rso(directiveLocation);
