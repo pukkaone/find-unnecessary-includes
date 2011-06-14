@@ -2,11 +2,8 @@
 
 include(HandleLLVMOptions)
 
-include_directories(
-    ${CMAKE_BINARY_DIR}/llvm/include
-    ${CMAKE_SOURCE_DIR}/llvm/include
-    ${CMAKE_BINARY_DIR}/clang/include
-    ${CMAKE_SOURCE_DIR}/clang/include
+include_directories(${LLVM_INCLUDE_DIRS}
+    ${CLANG_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/include
 )
 
