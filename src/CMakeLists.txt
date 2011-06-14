@@ -9,13 +9,17 @@ include_directories(${LLVM_INCLUDE_DIRS}
 
 set(LLVM_USED_LIBS
     clangFrontend
+    clangSerialization
     clangDriver
     clangSema
     clangAnalysis
     clangAST
     clangParse
+    clangSema
     clangLex
     clangBasic
+    LLVMSupport
+    LLVMMC
 )
 
 add_clang_executable(find-unnecessary-includes
