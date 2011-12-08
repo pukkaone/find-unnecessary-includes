@@ -18,8 +18,6 @@ set(LLVM_USED_LIBS
     clangParse
     clangLex
     clangBasic
-    LLVMMC
-    LLVMSupport
 )
 
 add_clang_executable(find-unnecessary-includes

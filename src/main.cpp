@@ -108,7 +108,7 @@ main (int argc, char* argv[])
             argv[0], reinterpret_cast<void*>(showHelp));
   }
 
-  if (compiler.getLangOpts().Microsoft) {
+  if (compiler.getLangOpts().MicrosoftMode) {
     // TODO: Kludge to allow clang to parse Microsoft headers.
     // Visual C++ does name resolution at template instantiation, but clang does
     // name resolution at template definition.  A Microsoft header defines a

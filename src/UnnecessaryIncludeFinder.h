@@ -193,7 +193,8 @@ public:
   virtual void FileChanged(
       clang::SourceLocation newLocation,
       clang::PPCallbacks::FileChangeReason reason,
-      clang::SrcMgr::CharacteristicKind fileType);
+      clang::SrcMgr::CharacteristicKind fileType,
+      clang::FileID prevFileID);
 
   virtual void FileSkipped(
       const clang::FileEntry& file,
@@ -201,7 +202,9 @@ public:
       clang::SrcMgr::CharacteristicKind fileType);
 
   virtual void MacroExpands(
-      const clang::Token& nameToken, const clang::MacroInfo* pMacro);
+      const clang::Token& nameToken,
+      const clang::MacroInfo* pMacro,
+      clang::SourceRange range);
 
   virtual void HandleTranslationUnit(clang::ASTContext& astContext);
 

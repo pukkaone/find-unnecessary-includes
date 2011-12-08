@@ -22,7 +22,7 @@ For example, suppose the header file `Base.h` defines a base class.  The header
 file `Derived.h` defines a class deriving from the base class, so it includes
 `Base.h`.  The main source file includes `Derived.h` but does not use any
 symbols defined in `Derived.h` and uses only symbols defined in `Base.h`.  The
-tool will say `Derive.h` is replaceable, and suggest the main source file
+tool will say `Derived.h` is replaceable, and suggest the main source file
 directly include `Base.h` instead.
 
 

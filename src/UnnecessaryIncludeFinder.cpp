@@ -191,9 +191,10 @@ public:
   virtual void FileChanged (
       SourceLocation newLocation,
       PPCallbacks::FileChangeReason reason,
-      SrcMgr::CharacteristicKind fileType)
+      SrcMgr::CharacteristicKind fileType,
+      FileID prevFileID)
   {
-    delegate_.FileChanged(newLocation, reason, fileType);
+    delegate_.FileChanged(newLocation, reason, fileType, prevFileID);
   }
 
   virtual void FileSkipped (
@@ -204,9 +205,10 @@ public:
     delegate_.FileSkipped(file, fileNameToken, fileType);
   }
 
-  virtual void MacroExpands (const Token& nameToken, const MacroInfo* pMacro)
+  virtual void MacroExpands (
+      const Token& nameToken, const MacroInfo* pMacro, SourceRange range)
   {
-    delegate_.MacroExpands(nameToken, pMacro);
+    delegate_.MacroExpands(nameToken, pMacro, range);
   }
 };
 
@@ -314,7 +316,8 @@ void
 UnnecessaryIncludeFinder::FileChanged (
     SourceLocation newLocation,
     PPCallbacks::FileChangeReason reason,
-    SrcMgr::CharacteristicKind fileType)
+    SrcMgr::CharacteristicKind fileType,
+    FileID prevFileID)
 {
   if (reason == PPCallbacks::EnterFile) {
     FileID newFileID = sourceManager_.getFileID(newLocation);
@@ -355,7 +358,7 @@ UnnecessaryIncludeFinder::FileSkipped (
 
 void
 UnnecessaryIncludeFinder::MacroExpands (
-    const Token& nameToken, const MacroInfo* pMacro)
+    const Token& nameToken, const MacroInfo* pMacro, SourceRange range)
 {
   // Ignore expansion of builtin macros like __LINE__.
   if (pMacro->isBuiltinMacro() == false) {

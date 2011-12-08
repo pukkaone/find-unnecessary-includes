@@ -140,7 +140,7 @@ function(clang_tablegen)
   endif()
 
   set( LLVM_TARGET_DEFINITIONS ${CTG_SOURCE} )
-  tablegen( ${CTG_DEFAULT_ARGS} )
+  tablegen( CLANG ${CTG_DEFAULT_ARGS} )
 
   list( GET CTG_DEFAULT_ARGS 0 output_file )
   if( CTG_TARGET )
@@ -231,6 +231,7 @@ set(LIBCLANG_LIBRARY_VERSION
     "Version number that will be placed into the libclang library , in the form XX.YY")
 mark_as_advanced(CLANG_EXECUTABLE_VERSION LIBCLANG_LIBRARY_VERSION)
 
+add_subdirectory(utils/TableGen)
 
 option(CLANG_BUILD_EXAMPLES "Build CLANG example programs." OFF)
 if(CLANG_BUILD_EXAMPLES)
@@ -259,3 +260,6 @@ if( CLANG_BUILT_STANDALONE AND MSVC_VERSION EQUAL 1600 )
     file(APPEND "${CLANG_SLN_FILENAME}" "\n# This should be regenerated!\n")
   endif()
 endif()
+
+set(BUG_REPORT_URL "http://llvm.org/bugs/" CACHE STRING
+  "Default URL where bug reports are to be submitted.")
