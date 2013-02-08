@@ -14,8 +14,6 @@ using namespace llvm;
 namespace {
 
 const std::string PROGRAM_NAME("find-unnecessary-includes");
-const std::string EXIT_FAILURE_OPT("-c");
-int exitStatus = EXIT_SUCCESS;
 
 typedef std::vector<char*> Arguments;
 
@@ -23,11 +21,6 @@ void
 handleCommandLineOptions (int argc, char* argv[], Arguments& filteredArgs)
 {
   for (int i = 1; i < argc; ++i) {
-    if (EXIT_FAILURE_OPT.compare(argv[i]) == 0) {
-      exitStatus = EXIT_FAILURE;
-      continue;
-    }
-
     filteredArgs.push_back(argv[i]);
   }
 }
@@ -44,7 +37,6 @@ showHelp ()
       "  -D<macro>[=def]         define preprocessor macro\n"
       "  -I<dir>                 add include directory\n"
       "  -include <file>         include file before main source\n"
-      "  -c                      exit with status 1\n"
       "\n"
       "Many clang options are also supported.  "
       "See the clang manual for more options.\n";
@@ -64,7 +56,7 @@ handleFrontEndOptions (FrontendOptions& opt)
     return false;
   }
 
-  if (opt.Inputs.empty() || opt.Inputs.at(0).second == "-") {
+  if (opt.Inputs.empty() || opt.Inputs.at(0).getFile() == "-") {
     showHelp();
     return false;
   }
@@ -86,7 +78,7 @@ main (int argc, char* argv[])
 
   // Create diagnostics so errors while processing command line arguments can
   // be reported.
-  compiler.createDiagnostics(argc, argv);
+  compiler.createDiagnostics();
 
   CompilerInvocation::CreateFromArgs(
       compiler.getInvocation(),
@@ -97,8 +89,6 @@ main (int argc, char* argv[])
   if (!handleFrontEndOptions(compiler.getFrontendOpts())) {
     return EXIT_FAILURE;
   }
-
-  compiler.getInvocation().setLangDefaults(IK_CXX);
 
   if (compiler.getHeaderSearchOpts().UseBuiltinIncludes
    && compiler.getHeaderSearchOpts().ResourceDir.empty())
@@ -122,5 +112,5 @@ main (int argc, char* argv[])
       compiler.getSourceManager());
 
   llvm_shutdown();
-  return foundUnnecessary ? EXIT_FAILURE : exitStatus;
+  return foundUnnecessary ? EXIT_FAILURE : EXIT_SUCCESS;
 }

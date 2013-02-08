@@ -1,5 +1,6 @@
 // $Id$
 #include "UnnecessaryIncludeFinder.h"
+#include "clang/AST/ASTContext.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
@@ -90,14 +91,12 @@ SourceFile::haveNestedUsedHeader (const UsedHeaders& usedHeaders)
 class UsedHeaderReporter: public IncludeDirectiveVisitor
 {
   const UsedHeaders& usedHeaders_;
-  SourceManager& sourceManager_;
   VisitedHeaders visitedHeaders_;
 
 public:
   UsedHeaderReporter (
       const UsedHeaders& usedHeaders, SourceManager& sourceManager):
-    usedHeaders_(usedHeaders),
-    sourceManager_(sourceManager)
+    usedHeaders_(usedHeaders)
   { }
 
   virtual bool visit (IncludeDirective::Ptr pIncludeDirective)
@@ -174,18 +173,28 @@ public:
     delegate_(delegate)
   { }
 
+
   virtual void InclusionDirective(
       clang::SourceLocation hashLoc,
-      const clang::Token& includeToken,
+      const clang::Token &includeToken,
       llvm::StringRef fileName,
       bool isAngled,
-      const clang::FileEntry* pFile,
-      clang::SourceLocation endLoc,
+      clang::CharSourceRange filenameRange,
+      const clang::FileEntry *file,
       llvm::StringRef searchPath,
-      llvm::StringRef relativePath)
+      llvm::StringRef relativePath,
+      const clang::Module *imported)
   {
     delegate_.InclusionDirective(
-        hashLoc, includeToken, fileName, isAngled, pFile, endLoc, searchPath, relativePath);
+        hashLoc,
+        includeToken,
+        fileName,
+        isAngled,
+        filenameRange,
+        file,
+        searchPath,
+        relativePath,
+        imported);
   }
 
   virtual void FileChanged (
@@ -255,13 +264,14 @@ UnnecessaryIncludeFinder::markUsed (
 void
 UnnecessaryIncludeFinder::InclusionDirective(
     clang::SourceLocation hashLoc,
-    const clang::Token& includeToken,
+    const clang::Token &includeTok,
     llvm::StringRef fileName,
     bool isAngled,
-    const clang::FileEntry* pFile,
-    clang::SourceLocation endLoc,
+    clang::CharSourceRange filenameRange,
+    const clang::FileEntry *file,
     llvm::StringRef searchPath,
-    llvm::StringRef relativePath)
+    llvm::StringRef relativePath,
+    const clang::Module *imported)
 {
   std::string directiveLocation;
   raw_string_ostream rso(directiveLocation);
@@ -272,8 +282,8 @@ UnnecessaryIncludeFinder::InclusionDirective(
   IncludeDirective::Ptr pIncludeDirective(
       new IncludeDirective(directiveLocation, fileName, isAngled));
 
-  fileToIncludeDirectiveMap_.erase(pFile);
-  fileToIncludeDirectiveMap_.insert(std::make_pair(pFile, pIncludeDirective));
+  fileToIncludeDirectiveMap_.erase(file);
+  fileToIncludeDirectiveMap_.insert(std::make_pair(file, pIncludeDirective));
 }
 
 SourceFile::Ptr
