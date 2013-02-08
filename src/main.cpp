@@ -14,8 +14,6 @@ using namespace llvm;
 namespace {
 
 const std::string PROGRAM_NAME("find-unnecessary-includes");
-const std::string EXIT_FAILURE_OPT("-c");
-int exitStatus = EXIT_SUCCESS;
 
 typedef std::vector<char*> Arguments;
 
@@ -23,11 +21,6 @@ void
 handleCommandLineOptions (int argc, char* argv[], Arguments& filteredArgs)
 {
   for (int i = 1; i < argc; ++i) {
-    if (EXIT_FAILURE_OPT.compare(argv[i]) == 0) {
-      exitStatus = EXIT_FAILURE;
-      continue;
-    }
-
     filteredArgs.push_back(argv[i]);
   }
 }
@@ -44,7 +37,6 @@ showHelp ()
       "  -D<macro>[=def]         define preprocessor macro\n"
       "  -I<dir>                 add include directory\n"
       "  -include <file>         include file before main source\n"
-      "  -c                      exit with status 1\n"
       "\n"
       "Many clang options are also supported.  "
       "See the clang manual for more options.\n";
@@ -120,5 +112,5 @@ main (int argc, char* argv[])
       compiler.getSourceManager());
 
   llvm_shutdown();
-  return foundUnnecessary ? EXIT_FAILURE : exitStatus;
+  return foundUnnecessary ? EXIT_FAILURE : EXIT_SUCCESS;
 }
