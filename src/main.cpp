@@ -64,7 +64,7 @@ handleFrontEndOptions (FrontendOptions& opt)
     return false;
   }
 
-  if (opt.Inputs.empty() || opt.Inputs.at(0).second == "-") {
+  if (opt.Inputs.empty() || opt.Inputs.at(0).getFile() == "-") {
     showHelp();
     return false;
   }
@@ -86,7 +86,7 @@ main (int argc, char* argv[])
 
   // Create diagnostics so errors while processing command line arguments can
   // be reported.
-  compiler.createDiagnostics(argc, argv);
+  compiler.createDiagnostics();
 
   CompilerInvocation::CreateFromArgs(
       compiler.getInvocation(),
@@ -97,8 +97,6 @@ main (int argc, char* argv[])
   if (!handleFrontEndOptions(compiler.getFrontendOpts())) {
     return EXIT_FAILURE;
   }
-
-  compiler.getInvocation().setLangDefaults(IK_CXX);
 
   if (compiler.getHeaderSearchOpts().UseBuiltinIncludes
    && compiler.getHeaderSearchOpts().ResourceDir.empty())
