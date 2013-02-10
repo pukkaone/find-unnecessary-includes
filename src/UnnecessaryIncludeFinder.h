@@ -1,5 +1,5 @@
-#ifndef UNUSEDHEADERFINDER_H
-#define UNUSEDHEADERFINDER_H
+#ifndef UNNECESSARYINCLUDEFINDER_H
+#define UNNECESSARYINCLUDEFINDER_H
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"

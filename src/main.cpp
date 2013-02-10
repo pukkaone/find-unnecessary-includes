@@ -14,16 +14,6 @@ namespace {
 
 const std::string PROGRAM_NAME("find-unnecessary-includes");
 
-typedef std::vector<char*> Arguments;
-
-void
-handleCommandLineOptions (int argc, char* argv[], Arguments& filteredArgs)
-{
-  for (int i = 1; i < argc; ++i) {
-    filteredArgs.push_back(argv[i]);
-  }
-}
-
 void
 showHelp ()
 {
@@ -31,8 +21,8 @@ showHelp ()
       "USAGE: " << PROGRAM_NAME << " [options] <inputs>\n"
       "\n"
       "OPTIONS:\n"
-      "  --help                  show help\n"
-      "  --version               show version\n"
+      "  -help                   show help\n"
+      "  -version                show version\n"
       "  -D<macro>[=def]         define preprocessor macro\n"
       "  -I<dir>                 add include directory\n"
       "  -include <file>         include file before main source\n"
@@ -68,11 +58,6 @@ handleFrontEndOptions (FrontendOptions& opt)
 int
 main (int argc, char* argv[])
 {
-  // Process our own command line options and remove them from the arguments
-  // before letting the compiler invocation process the arguments.
-  Arguments arguments;
-  handleCommandLineOptions(argc, argv, arguments);
-
   CompilerInstance compiler;
 
   // Create diagnostics so errors while processing command line arguments can
@@ -81,8 +66,8 @@ main (int argc, char* argv[])
 
   CompilerInvocation::CreateFromArgs(
       compiler.getInvocation(),
-      &arguments[0],
-      &arguments[0] + arguments.size(),
+      &argv[1],
+      &argv[1] + argc - 1,
       compiler.getDiagnostics());
 
   if (!handleFrontEndOptions(compiler.getFrontendOpts())) {
