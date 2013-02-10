@@ -1,4 +1,3 @@
-# $Id$
 cmake_minimum_required(VERSION 2.8)
 project(find-unnecessary-includes)
 
@@ -16,6 +15,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 enable_testing()
 
 # Visual C++ Express Editions do not support solution folders.
+set(LLVM_USE_FOLDERS OFF)
 set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
 
 option(USE_INSTALLED_CLANG "Use an installed clang/llvm?" OFF)
@@ -29,13 +29,6 @@ if(USE_INSTALLED_CLANG)
   set(CLANG_INCLUDE_DIRS)
   link_directories(${LLVM_LIBRARY_DIRS})
 else()
-  # Patch LLVM CMake script to set USE_FOLDERS property to OFF.
-  configure_file(
-      patch/llvm/CMakeLists.txt
-      ${CMAKE_SOURCE_DIR}/llvm/CMakeLists.txt
-      COPYONLY)
-  add_subdirectory(llvm)
-
   set(CLANG_BUILD_STANDALONE 1
       CACHE INTERNAL "Build clang as standalone.")
   set(CLANG_PATH_TO_LLVM_SOURCE "${CMAKE_SOURCE_DIR}/llvm"
@@ -48,6 +41,8 @@ else()
       patch/clang/CMakeLists.txt
       ${CMAKE_SOURCE_DIR}/clang/CMakeLists.txt
       COPYONLY)
+
+  add_subdirectory(llvm)
   add_subdirectory(clang)
   set(LLVM_INCLUDE_DIRS
       ${CMAKE_BINARY_DIR}/llvm/include

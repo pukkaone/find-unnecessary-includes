@@ -1,4 +1,3 @@
-// $Id$
 #ifndef UNUSEDHEADERFINDER_H
 #define UNUSEDHEADERFINDER_H
 
@@ -107,16 +106,14 @@ public:
   /**
    * Reports the headers included by this source file that are used.
    */
-  void reportNestedUsedHeaders(
-      const UsedHeaders& usedHeaders, clang::SourceManager& sourceManager);
+  void reportNestedUsedHeaders(const UsedHeaders& usedHeaders);
 
   /**
    * Reports unnecessary #include directives in this source file.
    *
    * @return true if an unnecessary #include directive was found
    */
-  bool reportUnnecessaryIncludes(
-      const UsedHeaders& allUsedHeaders, clang::SourceManager& sourceManager);
+  bool reportUnnecessaryIncludes(const UsedHeaders& allUsedHeaders);
 };
 
 class UnnecessaryIncludeFinderAction;
@@ -137,7 +134,7 @@ class UnnecessaryIncludeFinder:
   UnnecessaryIncludeFinderAction& action_;
   clang::SourceManager& sourceManager_;
 
-  // map file to last #include directive that includes it 
+  // map file to last #include directive that includes it
   typedef llvm::DenseMap<const clang::FileEntry*, IncludeDirective::Ptr>
       FileToIncludeDirectiveMap;
   FileToIncludeDirectiveMap fileToIncludeDirectiveMap_;
@@ -181,15 +178,15 @@ public:
   clang::PPCallbacks* createPreprocessorCallbacks();
 
   virtual void InclusionDirective(
-      clang::SourceLocation HashLoc,
-      const clang::Token &IncludeTok,
-      llvm::StringRef FileName,
-      bool IsAngled,
-      clang::CharSourceRange FilenameRange,
-      const clang::FileEntry *File,
-      llvm::StringRef SearchPath,
-      llvm::StringRef RelativePath,
-      const clang::Module *Imported);
+      clang::SourceLocation hashLoc,
+      const clang::Token& includeToken,
+      llvm::StringRef fileName,
+      bool isAngled,
+      clang::CharSourceRange filenameRange,
+      const clang::FileEntry* pFile,
+      llvm::StringRef searchPath,
+      llvm::StringRef relativePath,
+      const clang::Module* pImported);
 
   virtual void FileChanged(
       clang::SourceLocation newLocation,
@@ -218,10 +215,10 @@ public:
   // Called when a class template is used.
   bool VisitTemplateSpecializationTypeLoc(
       clang::TemplateSpecializationTypeLoc typeLoc);
-  
+
   // Called when a variable, function, or enum constant is used.
   bool VisitDeclRefExpr(clang::DeclRefExpr* pExpr);
-  
+
   // Called when a class, struct, or union member is used.
   bool VisitMemberExpr(clang::MemberExpr* pExpr);
 
@@ -249,7 +246,7 @@ public:
    *
    * @return true if any unnecessary #include directives were found
    */
-  bool reportUnnecessaryIncludes(clang::SourceManager& sourceManager);
+  bool reportUnnecessaryIncludes();
 };
 
 #endif

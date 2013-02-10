@@ -1,4 +1,3 @@
-// $Id$
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -108,8 +107,7 @@ main (int argc, char* argv[])
 
   UnnecessaryIncludeFinderAction action;
   compiler.ExecuteAction(action);
-  bool foundUnnecessary = action.reportUnnecessaryIncludes(
-      compiler.getSourceManager());
+  bool foundUnnecessary = action.reportUnnecessaryIncludes();
 
   llvm_shutdown();
   return foundUnnecessary ? EXIT_FAILURE : EXIT_SUCCESS;

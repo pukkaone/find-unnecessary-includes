@@ -1,4 +1,3 @@
-// $Id$
 #include "UnnecessaryIncludeFinder.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/FileManager.h"
@@ -18,7 +17,7 @@ IncludeDirective::printFileName (std::ostream& out)
       << fileName_
       << (angled_ ? '>' : '"');
 }
-  
+
 void
 IncludeDirective::printWarningPrefix (std::ostream& out)
 {
@@ -95,7 +94,7 @@ class UsedHeaderReporter: public IncludeDirectiveVisitor
 
 public:
   UsedHeaderReporter (
-      const UsedHeaders& usedHeaders, SourceManager& sourceManager):
+      const UsedHeaders& usedHeaders):
     usedHeaders_(usedHeaders)
   { }
 
@@ -116,16 +115,14 @@ public:
 };
 
 void
-SourceFile::reportNestedUsedHeaders (
-    const UsedHeaders& usedHeaders, SourceManager& sourceManager)
+SourceFile::reportNestedUsedHeaders (const UsedHeaders& usedHeaders)
 {
-  UsedHeaderReporter reporter(usedHeaders, sourceManager);
+  UsedHeaderReporter reporter(usedHeaders);
   traverse(reporter);
 }
 
 bool
-SourceFile::reportUnnecessaryIncludes (
-    const UsedHeaders& allUsedHeaders, SourceManager& sourceManager)
+SourceFile::reportUnnecessaryIncludes (const UsedHeaders& allUsedHeaders)
 {
   bool foundUnnecessary = false;
 
@@ -150,7 +147,7 @@ SourceFile::reportUnnecessaryIncludes (
       pIncludeDirective->printWarningPrefix(std::cout);
       if (haveNestedUsedHeader) {
         std::cout << "is replaceable. It includes these used headers:";
-        pHeader->reportNestedUsedHeaders(allUsedHeaders, sourceManager);
+        pHeader->reportNestedUsedHeaders(allUsedHeaders);
       } else {
         std::cout << "is unnecessary";
       }
@@ -173,17 +170,16 @@ public:
     delegate_(delegate)
   { }
 
-
   virtual void InclusionDirective(
       clang::SourceLocation hashLoc,
-      const clang::Token &includeToken,
+      const clang::Token& includeToken,
       llvm::StringRef fileName,
       bool isAngled,
       clang::CharSourceRange filenameRange,
-      const clang::FileEntry *file,
+      const clang::FileEntry* pFile,
       llvm::StringRef searchPath,
       llvm::StringRef relativePath,
-      const clang::Module *imported)
+      const clang::Module* pImported)
   {
     delegate_.InclusionDirective(
         hashLoc,
@@ -191,10 +187,10 @@ public:
         fileName,
         isAngled,
         filenameRange,
-        file,
+        pFile,
         searchPath,
         relativePath,
-        imported);
+        pImported);
   }
 
   virtual void FileChanged (
@@ -264,14 +260,14 @@ UnnecessaryIncludeFinder::markUsed (
 void
 UnnecessaryIncludeFinder::InclusionDirective(
     clang::SourceLocation hashLoc,
-    const clang::Token &includeTok,
+    const clang::Token& includeToken,
     llvm::StringRef fileName,
     bool isAngled,
     clang::CharSourceRange filenameRange,
-    const clang::FileEntry *file,
+    const clang::FileEntry* pFile,
     llvm::StringRef searchPath,
     llvm::StringRef relativePath,
-    const clang::Module *imported)
+    const clang::Module* pImported)
 {
   std::string directiveLocation;
   raw_string_ostream rso(directiveLocation);
@@ -282,8 +278,8 @@ UnnecessaryIncludeFinder::InclusionDirective(
   IncludeDirective::Ptr pIncludeDirective(
       new IncludeDirective(directiveLocation, fileName, isAngled));
 
-  fileToIncludeDirectiveMap_.erase(file);
-  fileToIncludeDirectiveMap_.insert(std::make_pair(file, pIncludeDirective));
+  fileToIncludeDirectiveMap_.erase(pFile);
+  fileToIncludeDirectiveMap_.insert(std::make_pair(pFile, pIncludeDirective));
 }
 
 SourceFile::Ptr
@@ -444,8 +440,7 @@ UnnecessaryIncludeFinderAction::CreateASTConsumer (
 }
 
 bool
-UnnecessaryIncludeFinderAction::reportUnnecessaryIncludes (
-    SourceManager& sourceManager)
+UnnecessaryIncludeFinderAction::reportUnnecessaryIncludes ()
 {
   bool foundUnnecessary = false;
 
@@ -455,8 +450,7 @@ UnnecessaryIncludeFinderAction::reportUnnecessaryIncludes (
   {
     SourceFile::Ptr pMainSource(*ppSource);
 
-    bool found = pMainSource->reportUnnecessaryIncludes(
-        allUsedHeaders_, sourceManager);
+    bool found = pMainSource->reportUnnecessaryIncludes(allUsedHeaders_);
     if (found) {
       foundUnnecessary = true;
     }

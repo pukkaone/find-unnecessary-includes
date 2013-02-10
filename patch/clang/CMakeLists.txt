@@ -88,7 +88,7 @@ if( CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR AND NOT MSVC_IDE )
 "`CMakeFiles'. Please delete them.")
 endif()
 
-if( CLANG_BUILD_STANDALONE OR CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR )
+if( NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR )
   file(GLOB_RECURSE
     tablegenned_files_on_include_dir
     "${CLANG_SOURCE_DIR}/include/clang/*.inc")
@@ -266,10 +266,12 @@ add_subdirectory(examples)
 # TODO: docs.
 add_subdirectory(test)
 
-if( LLVM_INCLUDE_TESTS )
-  if( NOT CLANG_BUILT_STANDALONE )
-    add_subdirectory(unittests)
-  endif()
+option(CLANG_INCLUDE_TESTS
+       "Generate build targets for the Clang unit tests."
+       ${LLVM_INCLUDE_TESTS})
+
+if( CLANG_INCLUDE_TESTS )
+  add_subdirectory(unittests)
 endif()
 
 # Workaround for MSVS10 to avoid the Dialog Hell
